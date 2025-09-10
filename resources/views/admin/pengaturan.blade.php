@@ -1,0 +1,24 @@
+{{-- admin/pengaturan.blade.php --}}
+@extends('admin.layouts.app')
+
+@section('title', 'Pengaturan')
+
+@section('content')
+<div class="row mb-4">
+    <div class="col-12">
+        <h1 class="h3 mb-2">Pengaturan Sistem</h1>
+        <p class="text-muted">Konfigurasi pengaturan aplikasi Inkluvia</p>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body text-center py-5">
+        <i class="fas fa-cogs fa-4x text-muted mb-4"></i>
+        <h4 class="text-muted">Fitur Sedang Dikembangkan</h4>
+        <p class="text-muted">Panel Pengaturan akan segera tersedia untuk konfigurasi sistem.</p>
+        <div class="mt-4">
+            <span class="badge bg-warning text-dark">Coming Soon</span>
+        </div>
+    </div>
+</div>
+@endsection
