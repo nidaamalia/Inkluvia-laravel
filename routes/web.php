@@ -7,6 +7,7 @@ use App\Http\Controllers\LembagaController;
 use App\Http\Controllers\DeviceController;
 use App\Http\Controllers\MaterialController;
 use App\Http\Controllers\MaterialRequestController;
+use App\Http\Controllers\JadwalController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -28,22 +29,22 @@ Route::middleware('auth')->group(function () {
     
     // User routes
     Route::middleware('role:user')->prefix('user')->name('user.')->group(function () {
-        Route::get('/jadwal-belajar', function () {
-            return view('user.jadwal-belajar');
-        })->name('jadwal-belajar');
+        Route::get('/jadwal-belajar', [JadwalController::class, 'index'])->name('jadwal-belajar');
+        Route::get('/jadwal-belajar/create', [JadwalController::class, 'create'])->name('jadwal-belajar.create');
+        Route::post('/jadwal-belajar', [JadwalController::class, 'store'])->name('jadwal-belajar.store');
+        Route::get('/jadwal-belajar/{jadwal}/edit', [JadwalController::class, 'edit'])->name('jadwal-belajar.edit');
+        Route::put('/jadwal-belajar/{jadwal}', [JadwalController::class, 'update'])->name('jadwal-belajar.update');
+        Route::delete('/jadwal-belajar/{jadwal}', [JadwalController::class, 'destroy'])->name('jadwal-belajar.destroy');
+        Route::get('/jadwal-belajar/{jadwal}/start', [JadwalController::class, 'startSession'])->name('jadwal-belajar.start');
+        Route::post('/jadwal-belajar/{jadwal}/send', [JadwalController::class, 'sendToDevices'])->name('jadwal-belajar.send');
+        Route::get('/jadwal-belajar/{jadwal}/learn', [JadwalController::class, 'learn'])->name('jadwal-belajar.learn');
         
-        // Material request routes
         Route::get('/request-materi', function () {
             return view('user.request-materi');
         })->name('request-materi');
-        Route::post('/request-materi', [MaterialController::class, 'requestMaterial'])->name('request-materi.store');
-        Route::get('/my-requests', [MaterialController::class, 'myRequests'])->name('my-requests');
-        
-        // Material library
-        Route::get('/perpustakaan', [MaterialController::class, 'library'])->name('perpustakaan');
-        Route::get('/materials/{material}/preview', [MaterialController::class, 'preview'])->name('materials.preview');
-        Route::get('/materials/{material}/download', [MaterialController::class, 'download'])->name('materials.download');
-        Route::get('/materials/{material}/download-braille', [MaterialController::class, 'downloadBraille'])->name('materials.download-braille');
+        Route::get('/perpustakaan', function () {
+            return view('user.perpustakaan');
+        })->name('perpustakaan');
     });
     
     // Admin routes
