@@ -12,6 +12,7 @@ class DatabaseSeeder extends Seeder
     {
         $this->call([
             LembagaSeeder::class,
+            BraillePatternsSeeder::class,
         ]);
 
         // Create default admin user
