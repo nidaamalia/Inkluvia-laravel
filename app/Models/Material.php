@@ -13,23 +13,15 @@ class Material extends Model
     protected $fillable = [
         'judul',
         'deskripsi',
-        'tahun_terbit',
-        'penerbit',
-        'edisi',
         'kategori',
         'tingkat',
-        'file_path',
-        'braille_data_path',
-        'total_halaman',
         'status',
         'akses',
         'created_by',
-        'published_at'
+        'total_halaman'
     ];
 
-    protected $casts = [
-        'published_at' => 'datetime',
-    ];
+    protected $casts = [];
 
     public function creator()
     {
@@ -46,6 +38,11 @@ class Material extends Model
         return $this->hasMany(MaterialBrailleContent::class);
     }
 
+    public function pages()
+    {
+        return $this->hasMany(MaterialPage::class);
+    }
+
     public function getStatusBadgeColorAttribute()
     {
         return match($this->status) {
@@ -54,19 +51,20 @@ class Material extends Model
             'processing' => 'info',
             'draft' => 'secondary',
             'archived' => 'danger',
+            'pending' => 'warning',
             default => 'secondary'
         };
     }
 
     public function getAksesBadgeColorAttribute()
     {
-        if ($this->akses === 'public') {
-            return 'success';
-        } elseif (is_numeric($this->akses)) {
-            return 'info';
-        } else {
-            return 'secondary';
-        }
+        return match($this->akses) {
+            'public' => 'success',
+            'premium' => 'warning',
+            'restricted' => 'info',
+            'private' => 'secondary',
+            default => 'secondary'
+        };
     }
 
     public function scopePublished($query)
@@ -110,59 +108,22 @@ class Material extends Model
 
     public static function getAksesOptions()
     {
-        $options = [
-            'public' => 'Publik'
+        return [
+            'public' => 'Publik',
+            'premium' => 'Premium',
+            'restricted' => 'Terbatas',
+            'private' => 'Privat'
         ];
-        
-        // Add lembaga options
-        try {
-            $lembagas = \App\Models\Lembaga::orderBy('nama')->get();
-            foreach ($lembagas as $lembaga) {
-                $options[$lembaga->id] = $lembaga->nama;
-            }
-        } catch (\Exception $e) {
-            \Log::error('Error fetching lembaga options: ' . $e->getMessage());
-        }
-        
-        return $options;
     }
     
     public function getAksesDisplayAttribute()
     {
-        if ($this->akses === 'public') {
-            return 'Publik';
-        } elseif (is_numeric($this->akses)) {
-            try {
-                $lembaga = \App\Models\Lembaga::find($this->akses);
-                if ($lembaga) {
-                    return $lembaga->nama;
-                } else {
-                    // If lembaga not found, log the issue and return unknown
-                    \Log::warning("Lembaga with ID {$this->akses} not found for material {$this->id}");
-                    return 'Tidak Diketahui (ID: ' . $this->akses . ')';
-                }
-            } catch (\Exception $e) {
-                \Log::error('Error fetching lembaga: ' . $e->getMessage());
-                return 'Tidak Diketahui (ID: ' . $this->akses . ')';
-            }
-        } else {
-            // Handle invalid access values
-            $invalidValues = ['premium', 'restricted', 'private', 'admin'];
-            if (in_array(strtolower($this->akses), $invalidValues)) {
-                \Log::warning("Invalid access value '{$this->akses}' found for material {$this->id}. Consider updating to valid value.");
-                return 'Akses Tidak Valid (' . $this->akses . ')';
-            }
-            
-            // Try to find lembaga by name if akses is not numeric
-            try {
-                $lembagaByName = \App\Models\Lembaga::where('nama', 'like', '%' . $this->akses . '%')->first();
-                if ($lembagaByName) {
-                    return $lembagaByName->nama;
-                }
-            } catch (\Exception $e) {
-                \Log::error('Error fetching lembaga by name: ' . $e->getMessage());
-            }
-            return 'Tidak Diketahui (' . $this->akses . ')';
-        }
+        return match($this->akses) {
+            'public' => 'Publik',
+            'premium' => 'Premium',
+            'restricted' => 'Terbatas',
+            'private' => 'Privat',
+            default => 'Tidak Diketahui'
+        };
     }
 }
