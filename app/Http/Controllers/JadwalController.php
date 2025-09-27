@@ -43,7 +43,7 @@ class JadwalController extends Controller
                 return $jadwal->tanggal->timestamp + 999999999;
             } else {
                 // Active/upcoming: sort by date & time ASC (nearest first)
-                $datetime = \Carbon\Carbon::parse($jadwal->tanggal->format('Y-m-d') . ' ' . $jadwal->waktu_mulai);
+                $datetime = \Carbon\Carbon::parse($jadwal->tanggal->format('Y-m-d') . ' ' . $jadwal->waktu_mulai->format('H:i:s'));
                 return $datetime->timestamp;
             }
         })->values();

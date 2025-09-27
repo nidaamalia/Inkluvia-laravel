@@ -44,10 +44,27 @@
                     inkluvia
                 </a>
 
-                <!-- Header -->
-                <div class="mb-8">
-                    <h1 class="text-3xl font-bold text-gray-900 mb-2">Login</h1>
-                    <p class="text-gray-600">Masuk untuk melanjutkan pembelajaran</p>
+            @if(session('success'))
+                <div class="success-message">
+                    {{ session('success') }}
+                </div>
+            @endif
+
+            <form method="POST" action="{{ route('login') }}">
+                @csrf
+                
+                <div class="form-group">
+                    <label for="email" class="form-label">Email</label>
+                    <input 
+                        type="email" 
+                        id="email" 
+                        name="email" 
+                        class="form-input" 
+                        placeholder="Masukkan email Anda"
+                        value="{{ old('email') }}"
+                        required
+                        autofocus
+                    >
                 </div>
 
                 <!-- Error Messages -->

@@ -173,6 +173,16 @@ body {
     padding: 0.75rem;
     border-radius: 8px;
     margin-bottom: 1rem;
+    border-left: 4px solid #c53030;
+}
+
+.success-message {
+    background: #c6f6d5;
+    color: #2f855a;
+    padding: 0.75rem;
+    border-radius: 8px;
+    margin-bottom: 1rem;
+    border-left: 4px solid #2f855a;
     font-size: 0.875rem;
 }
 
