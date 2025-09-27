@@ -5,7 +5,6 @@ namespace App\Http\Controllers;
 use App\Models\Jadwal;
 use App\Models\Device;
 use App\Models\Material;
-use App\Models\UserSavedMaterial;
 use App\Services\MqttService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -53,10 +52,14 @@ class JadwalController extends Controller
 
     public function create()
     {
-        // Get saved materials for the current user
-        $savedMaterials = $this->getUserSavedMaterials();
-        
-        return view('user.jadwal-belajar.create', compact('savedMaterials'));
+        // Ambil materi yang dapat diakses oleh user berdasarkan aturan akses
+        $materials = Material::published()
+            ->accessibleBy(Auth::user())
+            ->orderBy('judul')
+            ->pluck('judul', 'judul')
+            ->toArray();
+
+        return view('user.jadwal-belajar.create', compact('materials'));
     }
 
     public function store(Request $request)
@@ -100,8 +103,12 @@ class JadwalController extends Controller
             abort(403);
         }
 
-        // Get saved materials for the current user
-        $savedMaterials = $this->getUserSavedMaterials();
+        // Ambil materi yang dapat diakses oleh user berdasarkan aturan akses
+        $materials = Material::published()
+            ->accessibleBy(Auth::user())
+            ->orderBy('judul')
+            ->pluck('judul', 'judul')
+            ->toArray();
 
         return view('user.jadwal-belajar.edit', compact('jadwal', 'savedMaterials'));
     }
@@ -270,5 +277,34 @@ class JadwalController extends Controller
         }
 
         return json_encode($data);
+    }
+
+    /**
+     * Method helper untuk mendapatkan materi yang dapat diakses user
+     * Digunakan untuk debugging dan testing
+     */
+    public function getAccessibleMaterials()
+    {
+        $user = Auth::user();
+        $materials = Material::published()
+            ->accessibleBy($user)
+            ->with('creator.lembaga')
+            ->get();
+
+        return response()->json([
+            'user_id' => $user->id,
+            'user_lembaga_id' => $user->lembaga_id,
+            'user_lembaga_type' => $user->lembaga ? $user->lembaga->type : null,
+            'accessible_materials' => $materials->map(function($material) {
+                return [
+                    'id' => $material->id,
+                    'judul' => $material->judul,
+                    'akses' => $material->akses,
+                    'creator_id' => $material->created_by,
+                    'creator_lembaga_id' => $material->creator->lembaga_id ?? null,
+                    'creator_lembaga_type' => $material->creator->lembaga->type ?? null,
+                ];
+            })
+        ]);
     }
 }

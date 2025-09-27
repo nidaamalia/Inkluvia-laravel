@@ -25,7 +25,7 @@ class Material extends Model
 
     public function creator()
     {
-        return $this->belongsTo(User::class, 'created_by');
+        return $this->belongsTo(User::class, 'created_by')->with('lembaga');
     }
 
     public function requests()
@@ -80,6 +80,39 @@ class Material extends Model
     public function scopeByTingkat($query, $tingkat)
     {
         return $query->where('tingkat', $tingkat);
+    }
+
+    /**
+     * Scope untuk mendapatkan materi yang dapat diakses oleh user
+     * - Public: semua user dapat akses
+     * - Private: hanya creator yang dapat akses
+     * - Restricted: hanya user dari lembaga yang sama (kecuali pengguna mandiri)
+     */
+    public function scopeAccessibleBy($query, $user)
+    {
+        return $query->where(function($q) use ($user) {
+            // Public materials - dapat diakses semua user
+            $q->where('akses', 'public')
+              // Private materials - hanya creator
+              ->orWhere(function($subQ) use ($user) {
+                  $subQ->where('akses', 'private')
+                       ->where('created_by', $user->id);
+              })
+              // Restricted materials - hanya dari lembaga yang sama (kecuali pengguna mandiri)
+              ->orWhere(function($subQ) use ($user) {
+                  $subQ->where('akses', 'restricted');
+                  
+                  // Jika user memiliki lembaga dan bukan pengguna mandiri
+                  if ($user->lembaga_id && $user->lembaga && $user->lembaga->type !== 'Individu') {
+                      $subQ->whereHas('creator.lembaga', function($lembagaQuery) use ($user) {
+                          $lembagaQuery->where('id', $user->lembaga_id);
+                      });
+                  } else {
+                      // Jika user adalah pengguna mandiri, tidak dapat akses materi restricted
+                      $subQ->whereRaw('1 = 0');
+                  }
+              });
+        });
     }
 
     public static function getKategoriOptions()
