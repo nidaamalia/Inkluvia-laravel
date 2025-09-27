@@ -83,11 +83,11 @@
                         <div class="flex items-center text-gray-600 mb-2">
                             <i class="far fa-clock mr-2" aria-hidden="true"></i>
                             <time datetime="{{ $jadwal->waktu_mulai }}">
-                                {{ \Carbon\Carbon::parse($jadwal->waktu_mulai)->format('H:i') }}
+                                {{ $jadwal->waktu_mulai->format('H:i') }}
                             </time>
                             <span class="mx-2">-</span>
                             <time datetime="{{ $jadwal->waktu_selesai }}">
-                                {{ \Carbon\Carbon::parse($jadwal->waktu_selesai)->format('H:i') }}
+                                {{ $jadwal->waktu_selesai->format('H:i') }}
                             </time>
                         </div>
 

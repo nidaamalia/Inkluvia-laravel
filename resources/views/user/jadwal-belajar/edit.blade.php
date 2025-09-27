@@ -53,7 +53,7 @@
                            required
                            class="w-full text-lg px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary"
                            aria-required="true"
-                           value="{{ old('waktu_mulai', \Carbon\Carbon::parse($jadwal->waktu_mulai)->format('H:i')) }}">
+                           value="{{ old('waktu_mulai', $jadwal->waktu_mulai->format('H:i')) }}">
                 </div>
                 
                 <div>
@@ -66,7 +66,7 @@
                            required
                            class="w-full text-lg px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary"
                            aria-required="true"
-                           value="{{ old('waktu_selesai', \Carbon\Carbon::parse($jadwal->waktu_selesai)->format('H:i')) }}">
+                           value="{{ old('waktu_selesai', $jadwal->waktu_selesai->format('H:i')) }}">
                 </div>
             </div>
 
