@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Models\Jadwal;
 use App\Models\Device;
+use App\Models\Material;
+use App\Models\UserSavedMaterial;
 use App\Services\MqttService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -51,16 +53,10 @@ class JadwalController extends Controller
 
     public function create()
     {
-        // List materi dari perpustakaan (nanti bisa dari database)
-        $materials = [
-            'Pengenalan Braille' => 'Pengenalan Braille',
-            'Alfabet Braille A-Z' => 'Alfabet Braille A-Z',
-            'Angka Braille' => 'Angka Braille',
-            'Matematika Dasar' => 'Matematika Dasar',
-            'Bahasa Indonesia' => 'Bahasa Indonesia',
-        ];
-
-        return view('user.jadwal-belajar.create', compact('materials'));
+        // Get saved materials for the current user
+        $savedMaterials = $this->getUserSavedMaterials();
+        
+        return view('user.jadwal-belajar.create', compact('savedMaterials'));
     }
 
     public function store(Request $request)
@@ -69,13 +65,27 @@ class JadwalController extends Controller
             'tanggal' => 'required|date',
             'waktu_mulai' => 'required',
             'waktu_selesai' => 'required|after:waktu_mulai',
-            'materi' => 'required|string',
+            'material_id' => 'required|exists:materials,id',
             'pengulangan' => 'required|in:tidak,harian,mingguan',
         ]);
 
-        // Generate judul otomatis dari materi
-        $validated['judul'] = $validated['materi'];
+        // Verify that the material is in user's saved list
+        $material = Material::findOrFail($validated['material_id']);
+        $isSaved = UserSavedMaterial::where('user_id', Auth::id())
+            ->where('material_id', $material->id)
+            ->exists();
+            
+        if (!$isSaved) {
+            return back()->withErrors(['material_id' => 'Anda hanya dapat membuat jadwal dari materi yang tersimpan.']);
+        }
+
+        // Generate judul dari material
+        $validated['judul'] = $material->judul;
+        $validated['materi'] = $material->judul; // Keep compatibility
         $validated['user_id'] = Auth::id();
+        
+        // Remove material_id as it's not in the table
+        unset($validated['material_id']);
 
         Jadwal::create($validated);
 
@@ -90,15 +100,10 @@ class JadwalController extends Controller
             abort(403);
         }
 
-        $materials = [
-            'Pengenalan Braille' => 'Pengenalan Braille',
-            'Alfabet Braille A-Z' => 'Alfabet Braille A-Z',
-            'Angka Braille' => 'Angka Braille',
-            'Matematika Dasar' => 'Matematika Dasar',
-            'Bahasa Indonesia' => 'Bahasa Indonesia',
-        ];
+        // Get saved materials for the current user
+        $savedMaterials = $this->getUserSavedMaterials();
 
-        return view('user.jadwal-belajar.edit', compact('jadwal', 'materials'));
+        return view('user.jadwal-belajar.edit', compact('jadwal', 'savedMaterials'));
     }
 
     public function update(Request $request, Jadwal $jadwal)
@@ -112,12 +117,26 @@ class JadwalController extends Controller
             'tanggal' => 'required|date',
             'waktu_mulai' => 'required',
             'waktu_selesai' => 'required|after:waktu_mulai',
-            'materi' => 'required|string',
+            'material_id' => 'required|exists:materials,id',
             'pengulangan' => 'required|in:tidak,harian,mingguan',
         ]);
 
-        // Update judul dari materi
-        $validated['judul'] = $validated['materi'];
+        // Verify that the material is in user's saved list
+        $material = Material::findOrFail($validated['material_id']);
+        $isSaved = UserSavedMaterial::where('user_id', Auth::id())
+            ->where('material_id', $material->id)
+            ->exists();
+            
+        if (!$isSaved) {
+            return back()->withErrors(['material_id' => 'Anda hanya dapat membuat jadwal dari materi yang tersimpan.']);
+        }
+
+        // Update judul dari material
+        $validated['judul'] = $material->judul;
+        $validated['materi'] = $material->judul; // Keep compatibility
+        
+        // Remove material_id as it's not in the table
+        unset($validated['material_id']);
 
         $jadwal->update($validated);
 
@@ -188,6 +207,29 @@ class JadwalController extends Controller
         $brailleData = $this->generateSampleBrailleData($jadwal->materi);
 
         return view('user.jadwal-belajar.learn', compact('jadwal', 'brailleData'));
+    }
+
+    /**
+     * Get user's saved materials
+     */
+    private function getUserSavedMaterials()
+    {
+        $user = Auth::user();
+        $userLembagaId = $user->lembaga_id;
+        
+        // Get materials that are both saved by user and accessible
+        return Material::whereIn('id', function($query) use ($user) {
+            $query->select('material_id')
+                ->from('user_saved_materials')
+                ->where('user_id', $user->id);
+        })
+        ->where('status', 'published')
+        ->where(function($q) use ($userLembagaId) {
+            $q->where('akses', 'public')
+              ->orWhere('akses', $userLembagaId);
+        })
+        ->orderBy('judul')
+        ->get();
     }
 
     private function generateSampleBrailleData($materi)

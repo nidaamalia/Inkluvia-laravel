@@ -76,6 +76,30 @@ class Jadwal extends Model
     }
 
     /**
+     * Get original material ID for edit form
+     * This method tries to find the material ID based on the saved title
+     */
+    public function getOriginalMaterialId()
+    {
+        if ($this->materi) {
+            $material = \App\Models\Material::where('judul', $this->materi)->first();
+            return $material ? $material->id : null;
+        }
+        return null;
+    }
+
+    /**
+     * Get related material model
+     */
+    public function getMaterialAttribute()
+    {
+        if ($this->materi) {
+            return \App\Models\Material::where('judul', $this->materi)->first();
+        }
+        return null;
+    }
+
+    /**
      * Scope untuk filter jadwal hari ini
      */
     public function scopeToday($query)
