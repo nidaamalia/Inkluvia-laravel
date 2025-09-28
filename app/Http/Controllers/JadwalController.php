@@ -371,14 +371,37 @@ class JadwalController extends Controller
             return response()->json(['error' => 'Halaman tidak ditemukan'], 404);
         }
 
+        $lines = $materialPage->lines ?? [];
+        $totalLines = count($lines);
+        $currentLineIndex = ($lineIndex >= 0 && $lineIndex < $totalLines) ? $lineIndex : 0;
+        $currentLineText = $lines[$currentLineIndex] ?? '';
+
         // Get total pages
         $totalPages = MaterialPage::where('material_id', $material->id)
             ->max('page_number') ?? 1;
 
-        $lines = $materialPage->lines;
-        $totalLines = count($lines);
-        $currentLineIndex = ($lineIndex >= 0 && $lineIndex < $totalLines) ? $lineIndex : 0;
-        $currentLineText = $lines[$currentLineIndex] ?? '';
+        $braillePatterns = [];
+        $brailleBinaryPatterns = [];
+        $brailleDecimalPatterns = [];
+
+        if (!empty($lines)) {
+            $characters = str_split(implode('', $lines));
+            $uniqueCharacters = array_unique($characters);
+
+            foreach ($uniqueCharacters as $char) {
+                if ($char === ' ') {
+                    $braillePatterns[$char] = '⠀';
+                    $brailleBinaryPatterns[$char] = '000000';
+                    $brailleDecimalPatterns[$char] = 0;
+                    continue;
+                }
+
+                $pattern = BraillePattern::getByCharacter($char);
+                $braillePatterns[$char] = $pattern ? $pattern->braille_unicode : '⠀';
+                $brailleBinaryPatterns[$char] = $pattern ? $pattern->dots_binary : '000000';
+                $brailleDecimalPatterns[$char] = $pattern ? $pattern->dots_decimal : 0;
+            }
+        }
 
         return response()->json([
             'success' => true,
@@ -392,7 +415,10 @@ class JadwalController extends Controller
                 'material_description' => $material->deskripsi,
                 'current_line_text' => $currentLineText,
                 'has_previous' => $pageNumber > 1,
-                'has_next' => $pageNumber < $totalPages
+                'has_next' => $pageNumber < $totalPages,
+                'braille_patterns' => $braillePatterns,
+                'braille_binary_patterns' => $brailleBinaryPatterns,
+                'braille_decimal_patterns' => $brailleDecimalPatterns,
             ]
         ]);
     }

@@ -194,6 +194,9 @@ const brailleData = {
     braille_decimal_patterns: {!! json_encode($brailleDecimalPatterns) !!}
 };
 
+const navigateUrl = {!! json_encode(route('user.jadwal-belajar.navigate', ['jadwal' => $jadwal->id])) !!};
+const materialPageUrl = {!! json_encode(route('user.jadwal-belajar.material-page', ['jadwal' => $jadwal->id])) !!};
+
 // MQTT Configuration
 const mqttUrl = '{{ config('mqtt.ws_url') }}';
 const mqttTopic = '{{ config('mqtt.topic') }}';
@@ -291,10 +294,75 @@ function getBrailleBinaryForChar(character) {
     return '000000';
 }
 
+function getBrailleDecimalForChar(character) {
+    if (character === ' ') {
+        return 0;
+    }
+
+    if (brailleData.braille_decimal_patterns && typeof brailleData.braille_decimal_patterns[character] !== 'undefined') {
+        return brailleData.braille_decimal_patterns[character];
+    }
+
+    return 0;
+}
+
+function fetchPageData(pageNumber, lineNumber = 1) {
+    const safePage = Math.max(1, pageNumber);
+    const payload = {
+        page: safePage,
+        line: Math.max(1, lineNumber)
+    };
+
+    return fetch(materialPageUrl, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+            'Accept': 'application/json'
+        },
+        body: JSON.stringify(payload)
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Failed to fetch page data');
+        }
+        return response.json();
+    })
+    .then(result => {
+        if (!result.success || !result.data) {
+            throw new Error(result.error || 'Invalid response');
+        }
+
+        currentPage = result.data.current_page;
+        currentLineIndex = result.data.current_line_index;
+        totalLines = result.data.total_lines;
+        brailleData.lines = result.data.lines;
+        brailleData.total_pages = result.data.total_pages;
+        currentLineText = result.data.current_line_text || '';
+
+        if (result.data.braille_patterns) {
+            brailleData.braille_patterns = result.data.braille_patterns;
+        }
+        if (result.data.braille_binary_patterns) {
+            brailleData.braille_binary_patterns = result.data.braille_binary_patterns;
+        }
+        if (result.data.braille_decimal_patterns) {
+            brailleData.braille_decimal_patterns = result.data.braille_decimal_patterns;
+        }
+
+        currentIndex = 0;
+        updateView();
+    })
+    .catch(error => {
+        console.error('Error fetching page data:', error);
+        updateMqttStatus('Gagal memuat halaman: ' + error.message, true);
+    });
+}
+
 // Update display
 function updateView() {
     console.log('updateView called - currentLineText:', currentLineText);
-    // Use current line text if available
+    
     if (currentLineText && currentLineText.length > 0) {
         const characters = currentLineText.split('');
         currentIndex = Math.max(0, Math.min(currentIndex, characters.length - 1));
@@ -303,30 +371,29 @@ function updateView() {
         console.log('Current character:', currentChar);
         console.log('Character code:', currentChar.charCodeAt(0));
         
-        // Update braille unicode - get from database
         const brailleUnicode = getBrailleUnicodeForChar(currentChar);
         console.log('Braille unicode for "' + currentChar + '":', brailleUnicode);
         document.getElementById('braille-dots').innerHTML = brailleUnicode;
-   
-        // Update character
+
+        const brailleBinary = getBrailleBinaryForChar(currentChar);
+        const brailleDecimal = getBrailleDecimalForChar(currentChar);
+        console.log('Braille binary for "' + currentChar + '":', brailleBinary);
+        console.log('Braille decimal for "' + currentChar + '":', brailleDecimal);
+        
         document.getElementById('braille-character').textContent = currentChar;
         
-        // Update page info
         document.getElementById('page-info').textContent = 
             `Halaman ${currentPage} • Baris ${currentLineIndex + 1} dari ${totalLines} • Karakter ${currentIndex + 1} dari ${characters.length}`;
         
-        // Update original text with highlighting - show only current line
         document.getElementById('original-text').innerHTML = characters.map((char, i) => {
             return i === currentIndex 
                 ? `<span class="active-char">${char}</span>`
                 : char;
         }).join('');
         
-        // Update braille unicode pattern above buttons
         updateBrailleUnicodePattern(currentChar);
         
-        // Send to MQTT
-        if (mqttClient.connected) {
+        if (window.mqttClient && mqttClient.connected) {
             try {
                 const decimalValue = typeof brailleDecimal !== 'undefined' && brailleDecimal !== null
                     ? String(brailleDecimal)
@@ -343,13 +410,12 @@ function updateView() {
             }
         }
     } else {
-        // No data available
         console.log('No data available');
         document.getElementById('braille-dots').innerHTML = '';
         document.getElementById('braille-character').textContent = '';
         document.getElementById('page-info').textContent = 'Tidak ada data tersedia';
         document.getElementById('original-text').innerHTML = '';
-        document.getElementById('braille-unicode-pattern').textContent = '⠀';
+        updateBrailleUnicodePattern(' ');
     }
 }
 
@@ -412,18 +478,13 @@ document.addEventListener('DOMContentLoaded', function() {
     
     document.getElementById('btn-page-prev').onclick = function() {
         if (currentPage > 1) {
-            currentPage--;
-            currentIndex = 0;
-            updateView();
+            fetchPageData(currentPage - 1);
         }
     };
-    
+
     document.getElementById('btn-page-next').onclick = function() {
-        const maxPage = Math.max(...brailleData.map(d => d.halaman));
-        if (currentPage < maxPage) {
-            currentPage++;
-            currentIndex = 0;
-            updateView();
+        if (currentPage < (brailleData.total_pages || 1)) {
+            fetchPageData(currentPage + 1);
         }
     };
     

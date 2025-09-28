@@ -74,7 +74,7 @@ class Jadwal extends Model
      */
     public function canStart()
     {
-        return $this->status === 'belum_mulai';
+        return in_array($this->status, ['belum_mulai', 'sedang_berlangsung']);
     }
 
     /**

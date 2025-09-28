@@ -43,6 +43,8 @@ Route::middleware('auth')->group(function () {
         Route::get('/jadwal-belajar/{jadwal}/start', [JadwalController::class, 'startSession'])->name('jadwal-belajar.start');
         Route::post('/jadwal-belajar/{jadwal}/send', [JadwalController::class, 'sendToDevices'])->name('jadwal-belajar.send');
         Route::get('/jadwal-belajar/{jadwal}/learn', [JadwalController::class, 'learn'])->name('jadwal-belajar.learn');
+        Route::post('/jadwal-belajar/{jadwal}/navigate', [JadwalController::class, 'navigatePage'])->name('jadwal-belajar.navigate');
+        Route::post('/jadwal-belajar/{jadwal}/material-page', [JadwalController::class, 'getMaterialPage'])->name('jadwal-belajar.material-page');
         
         Route::get('/request-materi', function () {
             return view('user.request-materi');
