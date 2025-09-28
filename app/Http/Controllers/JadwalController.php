@@ -198,6 +198,59 @@ class JadwalController extends Controller
 
         $devices = Device::whereIn('id', $validated['devices'])->get();
 
+        // Determine character capacity based on selected devices
+        $characterCapacity = 5;
+        if ($devices->isNotEmpty()) {
+            $minCapacity = $devices->min('character_capacity');
+            if ($minCapacity && $minCapacity > 0) {
+                $characterCapacity = $minCapacity;
+            }
+        }
+
+        // Prepare initial chunk data
+        $currentChunkText = '';
+        $currentChunkDecimalValues = [];
+        $currentChunkDecimal = '';
+        $pageNumber = 1;
+        $lineNumber = 1;
+
+        $material = $jadwal->material ?? Material::where('judul', $jadwal->materi)
+            ->published()
+            ->accessibleBy(Auth::user())
+            ->first();
+
+        if ($material) {
+            $materialPage = MaterialPage::where('material_id', $material->id)
+                ->orderBy('page_number')
+                ->first();
+
+            if ($materialPage && $materialPage->lines && !empty($materialPage->lines)) {
+                $pageNumber = $materialPage->page_number;
+                $firstLine = $materialPage->lines[0] ?? '';
+
+                if ($firstLine !== '') {
+                    $safeCapacity = max(1, (int)$characterCapacity);
+                    $lineChunks = str_split($firstLine, $safeCapacity);
+                    $currentChunkText = $lineChunks[0] ?? '';
+
+                    if ($currentChunkText !== '') {
+                        foreach (str_split($currentChunkText) as $char) {
+                            if ($char === ' ') {
+                                $currentChunkDecimalValues[] = '00';
+                                continue;
+                            }
+
+                            $pattern = BraillePattern::getByCharacter($char);
+                            $decimalValue = $pattern ? $pattern->dots_decimal : 0;
+                            $currentChunkDecimalValues[] = str_pad((string)$decimalValue, 2, '0', STR_PAD_LEFT);
+                        }
+
+                        $currentChunkDecimal = implode(' ', $currentChunkDecimalValues);
+                    }
+                }
+            }
+        }
+
         // Send material to selected devices via MQTT
         foreach ($devices as $device) {
             try {
@@ -206,6 +259,13 @@ class JadwalController extends Controller
                     'judul' => $jadwal->judul,
                     'materi' => $jadwal->materi,
                     'user' => Auth::user()->nama_lengkap,
+                    'character_capacity' => $characterCapacity,
+                    'page_number' => $pageNumber,
+                    'line_number' => $lineNumber,
+                    'chunk_number' => 1,
+                    'current_chunk_text' => $currentChunkText,
+                    'current_chunk_decimal_values' => $currentChunkDecimalValues,
+                    'current_chunk_decimal' => $currentChunkDecimal,
                     'timestamp' => now()->toISOString()
                 ]);
             } catch (\Exception $e) {
@@ -308,6 +368,24 @@ class JadwalController extends Controller
         $currentChunk = max(0, $currentChunk);
         
         $currentChunkText = $lineChunks[$currentChunk] ?? '';
+        $currentChunkDecimalValues = [];
+
+        if ($currentChunkText !== '') {
+            $chunkCharacters = str_split($currentChunkText);
+
+            foreach ($chunkCharacters as $char) {
+                if ($char === ' ') {
+                    $currentChunkDecimalValues[] = '00';
+                    continue;
+                }
+
+                $pattern = BraillePattern::getByCharacter($char);
+                $decimalValue = $pattern ? $pattern->dots_decimal : 0;
+                $currentChunkDecimalValues[] = str_pad((string)$decimalValue, 2, '0', STR_PAD_LEFT);
+            }
+        }
+
+        $currentChunkDecimal = implode(' ', $currentChunkDecimalValues);
         
         // Prepare pagination data
         $totalChunks = count($lineChunks);
@@ -354,6 +432,8 @@ class JadwalController extends Controller
             'totalChunks' => $paginated['total_chunks'],
             'currentLineText' => $currentLineText,
             'currentChunkText' => $currentChunkText,
+            'currentChunkDecimal' => $currentChunkDecimal,
+            'currentChunkDecimalValues' => $currentChunkDecimalValues,
             'characterCapacity' => $characterCapacity,
             'braillePatterns' => $braillePatterns,
             'brailleBinaryPatterns' => $brailleBinaryPatterns,

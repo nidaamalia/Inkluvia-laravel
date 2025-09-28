@@ -4,6 +4,7 @@ namespace App\Http\Controllers\User;
 
 use App\Http\Controllers\Controller;
 use App\Models\Device;
+use App\Models\BraillePattern;
 use App\Services\MqttService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -20,7 +21,10 @@ class DeviceTextController extends Controller
     public function sendText(Request $request)
     {
         $request->validate([
-            'text' => 'required|string|max:255',
+            'text' => 'nullable|string|max:255',
+            'chunk_text' => 'nullable|string|max:255',
+            'decimal_values' => 'sometimes|array',
+            'decimal_values.*' => 'string',
             'device_ids' => 'sometimes|array',
             'device_ids.*' => 'exists:devices,id'
         ]);
@@ -28,8 +32,53 @@ class DeviceTextController extends Controller
         // Debug: Log the incoming request
         \Log::info('SendText Request:', [
             'text' => $request->text,
+            'chunk_text' => $request->chunk_text,
+            'decimal_values' => $request->decimal_values ?? [],
             'device_ids' => $request->device_ids ?? 'not provided'
         ]);
+
+        $chunkText = $request->input('chunk_text', $request->input('text', ''));
+        $providedDecimals = $request->input('decimal_values', []);
+
+        $decimalValues = [];
+
+        if (!empty($providedDecimals)) {
+            foreach ($providedDecimals as $value) {
+                if ($value === null || $value === '') {
+                    continue;
+                }
+
+                if ($value === '00') {
+                    $decimalValues[] = '00';
+                    continue;
+                }
+
+                $decimalValues[] = str_pad((string)$value, 2, '0', STR_PAD_LEFT);
+            }
+        }
+
+        if (empty($decimalValues) && $chunkText !== '') {
+            $characters = str_split($chunkText);
+            foreach ($characters as $char) {
+                if ($char === ' ') {
+                    $decimalValues[] = '00';
+                    continue;
+                }
+
+                $pattern = BraillePattern::getByCharacter($char);
+                $decimal = $pattern ? $pattern->dots_decimal : 0;
+                $decimalValues[] = str_pad((string)$decimal, 2, '0', STR_PAD_LEFT);
+            }
+        }
+
+        if (empty($decimalValues)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Tidak ada data desimal yang dapat dikirim.',
+            ], 422);
+        }
+
+        $decimalPayload = implode(' ', $decimalValues);
 
         // Get devices with more detailed logging
         if ($request->has('device_ids')) {
@@ -56,22 +105,29 @@ class DeviceTextController extends Controller
             $topic = $topicPrefix . $device->id . '/control';
             $payload = [
                 'command' => 'display_text',
-                'text' => $request->text,
+                'text' => $chunkText,
+                'chunk_text' => $chunkText,
+                'decimal_values' => $decimalValues,
+                'decimal_string' => $decimalPayload,
                 'timestamp' => now()->toISOString(),
                 'device_id' => $device->id
             ];
 
             // Log the attempt
-            $logMessage = 'MQTT Publish Attempt - Topic: abatago/00/control, Message: 77, QoS: 0';
+            $logMessage = sprintf(
+                'MQTT Publish Attempt - Topic: %s, Message: %s, QoS: 0',
+                $topic,
+                $decimalPayload
+            );
             $logs[] = $logMessage;
             
             // Publish and get result
-            $success = $this->mqttService->publish('abatago/00/control', '0010');
+            $success = $this->mqttService->publish($topic, $decimalPayload);
             
             // Log the result
             $resultMessage = $success 
-                ? 'MQTT Publish Success - Topic: abatago/00/control, Message Length: 2'
-                : 'MQTT Publish Failed - Topic: abatago/00/control';
+                ? sprintf('MQTT Publish Success - Topic: %s, Message Length: %d', $topic, strlen($decimalPayload))
+                : sprintf('MQTT Publish Failed - Topic: %s', $topic);
             $logs[] = $resultMessage;
             
             $results[] = [
@@ -79,7 +135,8 @@ class DeviceTextController extends Controller
                 'device_name' => $device->nama_device,
                 'serial_number' => $device->serial_number,
                 'success' => $success,
-                'topic' => 'abatago/00/control'
+                'topic' => $topic,
+                'decimal_values' => $decimalValues
             ];
 
             if ($success) {

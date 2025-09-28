@@ -52,10 +52,19 @@
                 <div class="text-sm text-gray-500">
                     @foreach(str_split($currentChunkText) as $char)
                         <span style="display: inline-block; width: 24px; text-align: center;">
-                            {{ $char === ' ' ? '␣' : $char }}
+                            {{ $char === ' ' ? ' ' : $char }}
                         </span>
                     @endforeach
                 </div>
+                @if(!empty($currentChunkDecimalValues))
+                <div class="text-sm text-gray-500 mt-2">
+                    @foreach($currentChunkDecimalValues as $decimal)
+                        <span style="display: inline-block; width: 24px; text-align: center;">
+                            {{ $decimal }}
+                        </span>
+                    @endforeach
+                </div>
+                @endif
                 <div class="text-xs text-gray-400 mt-2">
                     Chunk {{ $currentChunk }} dari {{ $totalChunks }}
                 </div>
@@ -306,7 +315,9 @@ const brailleData = {
     current_line_text: {!! json_encode($currentLineText) !!},
     braille_patterns: {!! json_encode($braillePatterns) !!},
     braille_binary_patterns: {!! json_encode($brailleBinaryPatterns) !!},
-    braille_decimal_patterns: {!! json_encode($brailleDecimalPatterns) !!}
+    braille_decimal_patterns: {!! json_encode($brailleDecimalPatterns) !!},
+    current_chunk_text: {!! json_encode($currentChunkText) !!},
+    current_chunk_decimal_values: {!! json_encode($currentChunkDecimalValues ?? []) !!}
 };
 
 const navigateUrl = {!! json_encode(route('user.jadwal-belajar.navigate', ['jadwal' => $jadwal->id])) !!};
@@ -751,16 +762,29 @@ window.addEventListener('beforeunload', function() {
     }
 });
 
-// Device Text Sending Functionality
-let lastSentText = '';
+const initialChunkText = brailleData.current_chunk_text || '';
+const initialChunkDecimals = Array.isArray(brailleData.current_chunk_decimal_values)
+    ? brailleData.current_chunk_decimal_values
+    : [];
+
+let lastSentSignature = '';
 let isSending = false;
 
-// Function to send text to devices
-async function sendToDevices(text) {
-    if (!text || text === lastSentText || isSending) return;
-    
+// Function to send chunk decimal values to devices
+async function sendToDevices(chunkText, decimalValues) {
+    const decimals = Array.isArray(decimalValues) ? decimalValues : [];
+    const signature = JSON.stringify({ chunkText, decimals });
+
+    if ((typeof chunkText !== 'string' || chunkText.length === 0) && decimals.length === 0) {
+        return;
+    }
+
+    if (signature === lastSentSignature || isSending) {
+        return;
+    }
+
     isSending = true;
-    lastSentText = text;
+    lastSentSignature = signature;
     
     try {
         const response = await fetch('{{ route("user.device.send-text") }}', {
@@ -770,7 +794,11 @@ async function sendToDevices(text) {
                 'X-CSRF-TOKEN': '{{ csrf_token() }}',
                 'X-Requested-With': 'XMLHttpRequest'
             },
-            body: JSON.stringify({ text: text })
+            body: JSON.stringify({
+                text: chunkText,
+                chunk_text: chunkText,
+                decimal_values: decimals
+            })
         });
         
         const data = await response.json();
@@ -803,27 +831,10 @@ async function sendToDevices(text) {
     }
 }
 
-// Check for text changes every second
-setInterval(() => {
-    const brailleDisplay = document.querySelector('.braille-char');
-    if (brailleDisplay) {
-        const currentText = brailleDisplay.textContent.trim();
-        if (currentText) {
-            sendToDevices(currentText);
-        }
-    }
+// Initial send of current chunk decimal values
+setTimeout(() => {
+    sendToDevices(initialChunkText, initialChunkDecimals);
 }, 1000);
-
-// Initial send
-const initialBrailleDisplay = document.querySelector('.braille-char');
-if (initialBrailleDisplay) {
-    const initialText = initialBrailleDisplay.textContent.trim();
-    if (initialText) {
-        setTimeout(() => {
-            sendToDevices(initialText);
-        }, 1000); // Wait 1 second before initial send
-    }
-}
 </script>
 @endpush
 @endsection
