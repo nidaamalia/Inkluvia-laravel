@@ -66,6 +66,9 @@
                 <div>Halaman {{ $pageNumber }} dari {{ $totalPages }}</div>
                 <div>Baris {{ $currentLine }} dari {{ $totalLines }}</div>
             </div>
+            
+            <!-- Braille Unicode Pattern (hidden, used for MQTT) -->
+            <div id="braille-unicode-pattern" class="sr-only" aria-hidden="true"></div>
 
         <!-- Navigation Controls -->
         <div class="space-y-3">
@@ -491,23 +494,35 @@ function updateView() {
         
         const brailleUnicode = getBrailleUnicodeForChar(currentChar);
         console.log('Braille unicode for "' + currentChar + '":', brailleUnicode);
-        document.getElementById('braille-dots').innerHTML = brailleUnicode;
+        const brailleDotsElement = document.getElementById('braille-dots');
+        if (brailleDotsElement) {
+            brailleDotsElement.innerHTML = brailleUnicode;
+        }
 
         const brailleBinary = getBrailleBinaryForChar(currentChar);
         const brailleDecimal = getBrailleDecimalForChar(currentChar);
         console.log('Braille binary for "' + currentChar + '":', brailleBinary);
         console.log('Braille decimal for "' + currentChar + '":', brailleDecimal);
         
-        document.getElementById('braille-character').textContent = currentChar;
+        const brailleCharElement = document.getElementById('braille-character');
+        if (brailleCharElement) {
+            brailleCharElement.textContent = currentChar;
+        }
         
-        document.getElementById('page-info').textContent = 
-            `Halaman ${currentPage} • Baris ${currentLineIndex + 1} dari ${totalLines} • Karakter ${currentIndex + 1} dari ${characters.length}`;
+        const pageInfoElement = document.getElementById('page-info');
+        if (pageInfoElement) {
+            pageInfoElement.textContent = 
+                `Halaman ${currentPage} • Baris ${currentLineIndex + 1} dari ${totalLines} • Karakter ${currentIndex + 1} dari ${characters.length}`;
+        }
         
-        document.getElementById('original-text').innerHTML = characters.map((char, i) => {
-            return i === currentIndex 
-                ? `<span class="active-char">${char}</span>`
-                : char;
-        }).join('');
+        const originalTextElement = document.getElementById('original-text');
+        if (originalTextElement) {
+            originalTextElement.innerHTML = characters.map((char, i) => {
+                return i === currentIndex 
+                    ? `<span class="active-char">${char}</span>`
+                    : char;
+            }).join('');
+        }
         
         updateBrailleUnicodePattern(currentChar);
         
@@ -529,10 +544,27 @@ function updateView() {
         }
     } else {
         console.log('No data available');
-        document.getElementById('braille-dots').innerHTML = '';
-        document.getElementById('braille-character').textContent = '';
-        document.getElementById('page-info').textContent = 'Tidak ada data tersedia';
-        document.getElementById('original-text').innerHTML = '';
+        
+        const brailleDotsElement = document.getElementById('braille-dots');
+        if (brailleDotsElement) {
+            brailleDotsElement.innerHTML = '';
+        }
+        
+        const brailleCharElement = document.getElementById('braille-character');
+        if (brailleCharElement) {
+            brailleCharElement.textContent = '';
+        }
+        
+        const pageInfoElement = document.getElementById('page-info');
+        if (pageInfoElement) {
+            pageInfoElement.textContent = 'Tidak ada data tersedia';
+        }
+        
+        const originalTextElement = document.getElementById('original-text');
+        if (originalTextElement) {
+            originalTextElement.innerHTML = '';
+        }
+        
         updateBrailleUnicodePattern(' ');
     }
 }
@@ -557,65 +589,90 @@ function speakCharacter() {
 // Event listeners
 document.addEventListener('DOMContentLoaded', function() {
     // Button controls
-    document.getElementById('btn-prev').onclick = function() {
-        if (currentLineText) {
-            const characters = currentLineText.split('');
-            currentIndex = Math.max(0, currentIndex - 1);
-        }
-        updateView();
-    };
+    const btnPrev = document.getElementById('btn-prev');
+    const btnNext = document.getElementById('btn-next');
+    const btnRead = document.getElementById('btn-read');
+    const btnLinePrev = document.getElementById('btn-line-prev');
+    const btnLineNext = document.getElementById('btn-line-next');
+    const btnPagePrev = document.getElementById('btn-page-prev');
+
+    if (btnPrev) {
+        btnPrev.onclick = function() {
+            if (currentLineText) {
+                const characters = currentLineText.split('');
+                currentIndex = Math.max(0, currentIndex - 1);
+            }
+            updateView();
+        };
+    }
     
-    document.getElementById('btn-next').onclick = function() {
-        if (currentLineText) {
-            const characters = currentLineText.split('');
-            currentIndex = Math.min(characters.length - 1, currentIndex + 1);
-        }
-        updateView();
-    };
+    if (btnNext) {
+        btnNext.onclick = function() {
+            if (currentLineText) {
+                const characters = currentLineText.split('');
+                currentIndex = Math.min(characters.length - 1, currentIndex + 1);
+            }
+            updateView();
+        };
+    }
     
-    document.getElementById('btn-read').onclick = speakCharacter;
+    if (btnRead) {
+        btnRead.onclick = speakCharacter;
+    }
     
     // Line navigation
-    document.getElementById('btn-line-prev').onclick = function() {
-        if (brailleData.lines && currentLineIndex > 0) {
-            currentLineIndex--;
-            currentLineText = brailleData.lines[currentLineIndex] || '';
-            currentIndex = 0; // Reset character index when changing line
-            updateView();
-        }
-    };
+    if (btnLinePrev) {
+        btnLinePrev.onclick = function() {
+            if (brailleData.lines && currentLineIndex > 0) {
+                currentLineIndex--;
+                currentLineText = brailleData.lines[currentLineIndex] || '';
+                currentIndex = 0; // Reset character index when changing line
+                updateView();
+            }
+        };
+    }
     
-    document.getElementById('btn-line-next').onclick = function() {
-        if (brailleData.lines && currentLineIndex < totalLines - 1) {
-            currentLineIndex++;
-            currentLineText = brailleData.lines[currentLineIndex] || '';
-            currentIndex = 0; // Reset character index when changing line
-            updateView();
-        }
-    };
+    if (btnLineNext) {
+        btnLineNext.onclick = function() {
+            if (brailleData.lines && currentLineIndex < totalLines - 1) {
+                currentLineIndex++;
+                currentLineText = brailleData.lines[currentLineIndex] || '';
+                currentIndex = 0; // Reset character index when changing line
+                updateView();
+            }
+        };
+    }
     
-    document.getElementById('btn-page-prev').onclick = function() {
-        if (currentPage > 1) {
-            fetchPageData(currentPage - 1);
-        }
-    };
+    if (btnPagePrev) {
+        btnPagePrev.onclick = function() {
+            if (currentPage > 1) {
+                fetchPageData(currentPage - 1);
+            }
+        };
+    }
 
-    document.getElementById('btn-page-next').onclick = function() {
-        if (currentPage < (brailleData.total_pages || 1)) {
-            fetchPageData(currentPage + 1);
-        }
-    };
+    const btnPageNext = document.getElementById('btn-page-next');
+    if (btnPageNext) {
+        btnPageNext.onclick = function() {
+            if (currentPage < (brailleData.total_pages || 1)) {
+                fetchPageData(currentPage + 1);
+            }
+        };
+    }
     
     // Keyboard shortcuts
     document.addEventListener('keydown', function(e) {
+        const btnPrev = document.getElementById('btn-prev');
+        const btnNext = document.getElementById('btn-next');
+        
         switch(e.key) {
             case 'ArrowLeft':
                 e.preventDefault();
-                document.getElementById('btn-prev').click();
+                if (btnPrev) btnPrev.click();
                 break;
             case 'ArrowRight':
                 e.preventDefault();
-                document.getElementById('btn-next').click();
+                if (btnNext) btnNext.click();
                 break;
             case ' ':
                 e.preventDefault();
