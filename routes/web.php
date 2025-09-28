@@ -68,6 +68,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/perpustakaan/{material}/send', [PerpustakaanController::class, 'sendToDevice'])->name('perpustakaan.send');
         Route::get('/request-materi', [\App\Http\Controllers\MaterialRequestController::class, 'userIndex'])->name('request-materi');
         Route::get('/perpustakaan', [PerpustakaanController::class, 'index'])->name('perpustakaan');
+        Route::post('/perpustakaan', [PerpustakaanController::class, 'store'])->name('perpustakaan.store');
     });
     
     // Admin routes

@@ -18,7 +18,9 @@ class Material extends Model
         'status',
         'akses',
         'created_by',
-        'total_halaman'
+        'total_halaman',
+        'file_path',
+        'braille_data_path'
     ];
 
     protected $casts = [];
