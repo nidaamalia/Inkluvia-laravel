@@ -750,6 +750,80 @@ window.addEventListener('beforeunload', function() {
         mqttClient.end();
     }
 });
+
+// Device Text Sending Functionality
+let lastSentText = '';
+let isSending = false;
+
+// Function to send text to devices
+async function sendToDevices(text) {
+    if (!text || text === lastSentText || isSending) return;
+    
+    isSending = true;
+    lastSentText = text;
+    
+    try {
+        const response = await fetch('{{ route("user.device.send-text") }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: JSON.stringify({ text: text })
+        });
+        
+        const data = await response.json();
+        console.log('Text sent to devices:', data);
+        
+        // Update MQTT status
+        const mqttStatus = document.getElementById('mqtt-status');
+        if (mqttStatus) {
+            mqttStatus.textContent = 'Terkirim ke ' + data.results.length + ' perangkat';
+            mqttStatus.className = 'mt-6 p-3 rounded-lg text-center text-sm font-medium bg-green-100 text-green-800';
+            
+            // Reset status after 3 seconds
+            setTimeout(() => {
+                mqttStatus.textContent = 'Siap mengirim teks ke perangkat';
+                mqttStatus.className = 'mt-6 p-3 rounded-lg text-center text-sm font-medium bg-gray-100 text-gray-700';
+            }, 3000);
+        }
+        
+    } catch (error) {
+        console.error('Failed to send text to devices:', error);
+        
+        // Show error status
+        const mqttStatus = document.getElementById('mqtt-status');
+        if (mqttStatus) {
+            mqttStatus.textContent = 'Gagal mengirim teks ke perangkat';
+            mqttStatus.className = 'mt-6 p-3 rounded-lg text-center text-sm font-medium bg-red-100 text-red-800';
+        }
+    } finally {
+        isSending = false;
+    }
+}
+
+// Check for text changes every second
+setInterval(() => {
+    const brailleDisplay = document.querySelector('.braille-char');
+    if (brailleDisplay) {
+        const currentText = brailleDisplay.textContent.trim();
+        if (currentText) {
+            sendToDevices(currentText);
+        }
+    }
+}, 1000);
+
+// Initial send
+const initialBrailleDisplay = document.querySelector('.braille-char');
+if (initialBrailleDisplay) {
+    const initialText = initialBrailleDisplay.textContent.trim();
+    if (initialText) {
+        setTimeout(() => {
+            sendToDevices(initialText);
+        }, 1000); // Wait 1 second before initial send
+    }
+}
 </script>
 @endpush
 @endsection

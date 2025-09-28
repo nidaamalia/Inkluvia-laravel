@@ -47,6 +47,14 @@ Route::middleware('auth')->group(function () {
         Route::post('/jadwal-belajar/{jadwal}/navigate', [JadwalController::class, 'navigatePage'])->name('jadwal-belajar.navigate');
         Route::post('/jadwal-belajar/{jadwal}/material-page', [JadwalController::class, 'getMaterialPage'])->name('jadwal-belajar.material-page');
         
+        // Device Text Routes
+        Route::prefix('device')->name('device.')->group(function () {
+            Route::post('/send-text', [\App\Http\Controllers\User\DeviceTextController::class, 'sendText'])
+                 ->name('send-text');
+            Route::get('/list', [\App\Http\Controllers\User\DeviceTextController::class, 'listDevices'])
+                 ->name('list');
+        });
+        
         Route::get('/request-materi', function () {
             return view('user.request-materi');
         })->name('request-materi');
