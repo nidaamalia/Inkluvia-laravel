@@ -18,12 +18,14 @@ class Device extends Model
         'status',
         'last_connection',
         'keterangan',
-        'device_info'
+        'device_info',
+        'character_capacity'
     ];
 
     protected $casts = [
         'last_connection' => 'datetime',
-        'device_info' => 'array'
+        'device_info' => 'array',
+        'character_capacity' => 'integer'
     ];
 
     /**
