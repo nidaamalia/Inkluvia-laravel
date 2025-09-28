@@ -168,6 +168,16 @@ class JadwalController extends Controller
 
     public function startSession(Jadwal $jadwal)
     {
+        // Check authorization
+        if ($jadwal->user_id !== Auth::id()) {
+            abort(403);
+        }
+
+        // Always update status to 'sedang_berlangsung' regardless of current status
+        $jadwal->update([
+            'status' => 'sedang_berlangsung'
+        ]);
+
         // Get available devices for this user's lembaga
         $devices = Device::where('status', 'aktif')
             ->where(function($query) {
@@ -421,5 +431,40 @@ class JadwalController extends Controller
                 'braille_decimal_patterns' => $brailleDecimalPatterns,
             ]
         ]);
+    }
+
+    /**
+     * Mark a learning session as completed
+     *
+     * @param  \App\Models\Jadwal  $jadwal
+     * @return \Illuminate\Http\Response
+     */
+    public function completeSession(Jadwal $jadwal)
+    {
+        // Check if the user is authorized to update this session
+        if ($jadwal->user_id !== auth()->id()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthorized action.'
+            ], 403);
+        }
+
+        // Update the status to 'selesai' and set completion time
+        $jadwal->update([
+            'status' => 'selesai',
+            'waktu_selesai' => now()
+        ]);
+
+        // If this is an AJAX request
+        if (request()->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'redirect' => route('user.jadwal-belajar')
+            ]);
+        }
+
+        // For regular form submission
+        return redirect()->route('user.jadwal-belajar')
+            ->with('success', 'Sesi belajar telah selesai.');
     }
 }

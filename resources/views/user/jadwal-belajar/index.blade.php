@@ -112,8 +112,14 @@
                         @if($jadwal->canStart())
                         <a href="{{ route('user.jadwal-belajar.start', $jadwal) }}" 
                            class="px-4 py-2 bg-primary text-white text-center font-semibold rounded-lg hover:bg-primary-dark transition-colors focus:ring-2 focus:ring-primary focus:ring-offset-2"
-                           aria-label="{{ $jadwal->status === 'sedang_berlangsung' ? 'Lanjutkan sesi' : 'Mulai sesi' }} {{ $jadwal->judul }}">
-                            {{ $jadwal->status === 'sedang_berlangsung' ? 'Lanjutkan' : 'Mulai Sesi' }}
+                           aria-label="{{ $jadwal->status === 'sedang_berlangsung' ? 'Lanjutkan sesi' : ($jadwal->status === 'selesai' ? 'Mulai kembali sesi' : 'Mulai sesi') }} {{ $jadwal->judul }}">
+                            @if($jadwal->status === 'sedang_berlangsung')
+                                Lanjutkan
+                            @elseif($jadwal->status === 'selesai')
+                                Mulai Kembali
+                            @else
+                                Mulai Sesi
+                            @endif
                         </a>
 
                         <a href="{{ route('user.jadwal-belajar.edit', $jadwal) }}" 

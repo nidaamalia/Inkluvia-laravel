@@ -71,10 +71,11 @@ class Jadwal extends Model
 
     /**
      * Check if can start session
+     * Always returns true to allow restarting completed sessions
      */
     public function canStart()
     {
-        return in_array($this->status, ['belum_mulai', 'sedang_berlangsung']);
+        return true;
     }
 
     /**

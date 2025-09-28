@@ -139,6 +139,19 @@
             <div><kbd class="px-2 py-1 bg-white rounded border border-blue-300">Space</kbd> Baca karakter</div>
         </div>
     </div>
+
+    <!-- Tombol Selesai Belajar -->
+    <div class="mt-6 text-center">
+        <form id="complete-session-form" action="{{ route('user.jadwal-belajar.complete', $jadwal) }}" method="POST" class="inline-block">
+            @csrf
+            <button type="submit" 
+                    class="px-6 py-3 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 transition-colors focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
+                    aria-label="Selesaikan sesi belajar">
+                <i class="fas fa-check-circle mr-2" aria-hidden="true"></i>
+                Selesai Belajar
+            </button>
+        </form>
+    </div>
 </div>
 
 <!-- Live Region for Screen Reader -->
@@ -257,16 +270,22 @@ function brailleToDecimal(binary6) {
 
 // Update braille unicode pattern
 function updateBrailleUnicodePattern(character) {
+    const brailleElement = document.getElementById('braille-unicode-pattern');
+    if (!brailleElement) {
+        console.warn('Element with ID "braille-unicode-pattern" not found');
+        return;
+    }
+    
     const unicodePattern = getBrailleUnicodeForChar(character);
     // For space, show empty cell instead of space unicode
     if (character === ' ') {
-        document.getElementById('braille-unicode-pattern').textContent = '⠀'; // Braille blank
-        document.getElementById('braille-unicode-pattern').style.background = '#f9f9f9';
-        document.getElementById('braille-unicode-pattern').style.border = '1px solid #ddd';
+        brailleElement.textContent = '⠀'; // Braille blank
+        brailleElement.style.background = '#f9f9f9';
+        brailleElement.style.border = '1px solid #ddd';
     } else {
-        document.getElementById('braille-unicode-pattern').textContent = unicodePattern;
-        document.getElementById('braille-unicode-pattern').style.background = '';
-        document.getElementById('braille-unicode-pattern').style.border = '';
+        brailleElement.textContent = unicodePattern;
+        brailleElement.style.background = '';
+        brailleElement.style.border = '';
     }
 }
 
@@ -524,6 +543,50 @@ document.addEventListener('DOMContentLoaded', function() {
             'Halaman pembelajaran siap. Gunakan tombol atau keyboard untuk navigasi.';
     }, 1000);
 });
+
+// Handle complete session form submission
+const completeSessionForm = document.getElementById('complete-session-form');
+if (completeSessionForm) {
+    completeSessionForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const submitButton = this.querySelector('button[type="submit"]');
+        const originalButtonText = submitButton.innerHTML;
+        const formData = new FormData(this);
+        
+        // Disable button and show loading state
+        submitButton.disabled = true;
+        submitButton.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Menyelesaikan...';
+        
+        fetch(this.action, {
+            method: 'POST',
+            headers: {
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+            },
+            body: formData,
+            credentials: 'same-origin'
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.redirect) {
+                window.location.href = data.redirect;
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            submitButton.disabled = false;
+            submitButton.innerHTML = originalButtonText;
+            alert('Terjadi kesalahan saat menyelesaikan sesi. Silakan coba lagi.');
+        });
+    });
+}
 
 // Cleanup on page leave
 window.addEventListener('beforeunload', function() {
