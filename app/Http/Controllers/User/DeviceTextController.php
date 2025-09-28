@@ -66,7 +66,7 @@ class DeviceTextController extends Controller
             $logs[] = $logMessage;
             
             // Publish and get result
-            $success = $this->mqttService->publish('abatago/00/control', 00);
+            $success = $this->mqttService->publish('abatago/00/control', '0010');
             
             // Log the result
             $resultMessage = $success 

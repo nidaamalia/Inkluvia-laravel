@@ -135,6 +135,61 @@ class MqttService
     }
 
     /**
+     * Resolve topic from configuration and append serial number when provided
+     */
+    private function resolveTopic(string $configKey, ?string $serialNumber = null): string
+    {
+        $topics = config('mqtt.topics', []);
+        $baseTopic = $topics[$configKey] ?? config('mqtt.topic', 'mqtt/default');
+
+        $baseTopic = rtrim($baseTopic, '/');
+        if ($serialNumber !== null) {
+            $baseTopic .= '/' . trim($serialNumber);
+        }
+
+        return $baseTopic;
+    }
+
+    /**
+     * Send command payload to a specific device
+     */
+    public function sendDeviceCommand(string $serialNumber, array $commandData): bool
+    {
+        $topic = $this->resolveTopic('device_command', $serialNumber);
+
+        $payload = $commandData;
+        $payload['serial_number'] = $serialNumber;
+        $payload['timestamp'] = $payload['timestamp'] ?? now()->toISOString();
+
+        return $this->publish($topic, $payload);
+    }
+
+    /**
+     * Send material payload to a specific device
+     */
+    public function sendMaterial(string $serialNumber, array $materialData): bool
+    {
+        $topic = $this->resolveTopic('material_send', $serialNumber);
+
+        $payload = $materialData;
+        $payload['serial_number'] = $serialNumber;
+        $payload['type'] = $payload['type'] ?? 'material_send';
+        $payload['timestamp'] = $payload['timestamp'] ?? now()->toISOString();
+
+        return $this->publish($topic, $payload);
+    }
+
+    /**
+     * Send ping command to a device
+     */
+    public function pingDevice(string $serialNumber): bool
+    {
+        return $this->sendDeviceCommand($serialNumber, [
+            'type' => 'ping'
+        ]);
+    }
+
+    /**
      * Disconnect from MQTT broker
      */
     public function disconnect(): void
