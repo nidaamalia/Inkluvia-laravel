@@ -28,30 +28,76 @@ class MaterialRequest extends Model
         'completed_at' => 'datetime',
     ];
 
+    /**
+     * Get the user who made the request
+     */
     public function requester()
     {
         return $this->belongsTo(User::class, 'requested_by');
     }
 
+    /**
+     * Get the admin user assigned to handle this request
+     */
     public function assignee()
     {
         return $this->belongsTo(User::class, 'assigned_to');
     }
 
+    /**
+     * Get the material created from this request (if any)
+     */
     public function material()
     {
         return $this->belongsTo(Material::class);
     }
+    
+    /**
+     * Scope a query to only include requests made by a specific user
+     */
+    public function scopeRequestedBy($query, $userId)
+    {
+        return $query->where('requested_by', $userId);
+    }
+    
+    /**
+     * Scope a query to only include requests with a specific status
+     */
+    public function scopeWithStatus($query, $status)
+    {
+        return $query->where('status', $status);
+    }
+
+    // Status constants for better code readability
+    public const STATUS_PENDING = 'pending';
+    public const STATUS_APPROVED = 'approved';
+    public const STATUS_REJECTED = 'rejected';
+
+    // Priority constants
+    public const PRIORITY_LOW = 'rendah';
+    public const PRIORITY_MEDIUM = 'sedang';
+    public const PRIORITY_HIGH = 'tinggi';
 
     public function getStatusBadgeColorAttribute()
     {
         return match($this->status) {
-            'pending' => 'warning',
-            'approved' => 'info',
-            'in_progress' => 'primary',
-            'completed' => 'success',
-            'rejected' => 'danger',
+            self::STATUS_PENDING => 'warning',
+            self::STATUS_APPROVED => 'success',
+            self::STATUS_REJECTED => 'danger',
             default => 'secondary'
+        };
+    }
+    
+    /**
+     * Get the display name for the status
+     */
+    public function getStatusDisplayAttribute(): string
+    {
+        return match($this->status) {
+            self::STATUS_PENDING => 'Menunggu',
+            self::STATUS_APPROVED => 'Disetujui',
+            self::STATUS_REJECTED => 'Ditolak',
+            default => $this->status
         };
     }
 
@@ -80,14 +126,27 @@ class MaterialRequest extends Model
         return $query->where('prioritas', $prioritas);
     }
 
-    public static function getStatusOptions()
+    /**
+     * Get all available status options with their display names
+     */
+    public static function getStatusOptions(): array
     {
         return [
-            'pending' => 'Menunggu',
-            'approved' => 'Disetujui',
-            'in_progress' => 'Dalam Proses',
-            'completed' => 'Selesai',
-            'rejected' => 'Ditolak'
+            self::STATUS_PENDING => 'Menunggu',
+            self::STATUS_APPROVED => 'Disetujui',
+            self::STATUS_REJECTED => 'Ditolak'
+        ];
+    }
+    
+    /**
+     * Get all available priority options with their display names
+     */
+    public static function getPriorityOptions(): array
+    {
+        return [
+            self::PRIORITY_LOW => 'Rendah',
+            self::PRIORITY_MEDIUM => 'Sedang',
+            self::PRIORITY_HIGH => 'Tinggi'
         ];
     }
 

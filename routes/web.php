@@ -65,6 +65,10 @@ Route::middleware('auth')->group(function () {
         Route::get('/perpustakaan/{material}/preview', [PerpustakaanController::class, 'preview'])->name('perpustakaan.preview');
         Route::get('/perpustakaan/{material}/preview-page', [PerpustakaanController::class, 'showPreview'])->name('perpustakaan.preview-page');
         Route::get('/perpustakaan/{material}/send', [PerpustakaanController::class, 'sendToDevice'])->name('perpustakaan.send');
+        Route::get('/request-materi', [\App\Http\Controllers\MaterialRequestController::class, 'userIndex'])->name('request-materi');
+        Route::get('/perpustakaan', function () {
+            return view('user.perpustakaan');
+        })->name('perpustakaan');
     });
     
     // Admin routes
