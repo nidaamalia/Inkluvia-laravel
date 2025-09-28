@@ -259,19 +259,24 @@ class JadwalController extends Controller
 
         // Get braille patterns for current line characters
         $braillePatterns = [];
+        $brailleBinaryPatterns = [];
+        $brailleDecimalPatterns = [];
+
         if (!empty($currentLineText)) {
             $characters = str_split($currentLineText);
             foreach ($characters as $char) {
+                if ($char === ' ') {
+                    // Space handled locally without DB lookup
+                    $braillePatterns[$char] = '⠀';
+                    $brailleBinaryPatterns[$char] = '000000';
+                    $brailleDecimalPatterns[$char] = 0;
+                    continue;
+                }
+
                 $pattern = BraillePattern::getByCharacter($char);
-                $braillePatterns[$char] = $pattern ? [
-                    'unicode' => $pattern->braille_unicode,
-                    'binary' => $pattern->dots_binary,
-                    'decimal' => $pattern->dots_decimal
-                ] : [
-                    'unicode' => '⠀',
-                    'binary' => '000000',
-                    'decimal' => 0
-                ];
+                $braillePatterns[$char] = $pattern ? $pattern->braille_unicode : '⠀';
+                $brailleBinaryPatterns[$char] = $pattern ? $pattern->dots_binary : '000000';
+                $brailleDecimalPatterns[$char] = $pattern ? $pattern->dots_decimal : 0;
             }
         }
 
@@ -284,7 +289,9 @@ class JadwalController extends Controller
             'totalLines',
             'currentLineIndex',
             'currentLineText',
-            'braillePatterns'
+            'braillePatterns',
+            'brailleBinaryPatterns',
+            'brailleDecimalPatterns'
         ));
     }
 

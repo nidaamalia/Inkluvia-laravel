@@ -185,11 +185,13 @@ const brailleData = {
     current_line_index: {{ $currentLineIndex }},
     total_pages: {{ $totalPages }},
     total_lines: {{ $totalLines }},
-    lines: @json($lines),
-    material_title: @json($material->judul),
-    material_description: @json($material->deskripsi ?? ''),
-    current_line_text: @json($currentLineText),
-    braille_patterns: @json($braillePatterns)
+    lines: {!! json_encode($lines) !!},
+    material_title: {!! json_encode($material->judul) !!},
+    material_description: {!! json_encode($material->deskripsi ?? '') !!},
+    current_line_text: {!! json_encode($currentLineText) !!},
+    braille_patterns: {!! json_encode($braillePatterns) !!},
+    braille_binary_patterns: {!! json_encode($brailleBinaryPatterns) !!},
+    braille_decimal_patterns: {!! json_encode($brailleDecimalPatterns) !!}
 };
 
 // MQTT Configuration
@@ -212,6 +214,7 @@ let totalLines = brailleData.total_lines || 1;
 
 // Debug: Log data to console
 console.log('Braille Data:', brailleData);
+console.log('Space unicode from DB:', brailleData.braille_patterns ? brailleData.braille_patterns[' '] : 'Not found');
 
 // MQTT Connection Handlers
 mqttClient.on('connect', function() {
@@ -249,54 +252,48 @@ function brailleToDecimal(binary6) {
     return dec1.toString().padStart(1, '0') + dec2.toString().padStart(1, '0');
 }
 
-// Render braille dots
-function renderBrailleDots(binary) {
-    let html = '<div style="display: inline-block;">';
-    for (let row = 0; row < 3; row++) {
-        html += '<div class="braille-dot-row">';
-        const leftIdx = row * 2;
-        const rightIdx = row * 2 + 1;
-        
-        html += binary[leftIdx] === '1' 
-            ? '<div class="braille-dot" role="img" aria-label="Dot filled"></div>'
-            : '<div class="braille-dot-empty"></div>';
-        
-        html += binary[rightIdx] === '1'
-            ? '<div class="braille-dot" role="img" aria-label="Dot filled"></div>'
-            : '<div class="braille-dot-empty"></div>';
-        
-        html += '</div>';
-    }
-    html += '</div>';
-    return html;
-}
-
 // Update braille unicode pattern
 function updateBrailleUnicodePattern(character) {
     const unicodePattern = getBrailleUnicodeForChar(character);
-    document.getElementById('braille-unicode-pattern').textContent = unicodePattern;
-}
-
-// Get braille pattern for character from database
-function getBraillePatternForChar(character) {
-    if (brailleData.braille_patterns && brailleData.braille_patterns[character]) {
-        return brailleData.braille_patterns[character].binary;
+    // For space, show empty cell instead of space unicode
+    if (character === ' ') {
+        document.getElementById('braille-unicode-pattern').textContent = '⠀'; // Braille blank
+        document.getElementById('braille-unicode-pattern').style.background = '#f9f9f9';
+        document.getElementById('braille-unicode-pattern').style.border = '1px solid #ddd';
+    } else {
+        document.getElementById('braille-unicode-pattern').textContent = unicodePattern;
+        document.getElementById('braille-unicode-pattern').style.background = '';
+        document.getElementById('braille-unicode-pattern').style.border = '';
     }
-    return '000000'; // Default to empty pattern
 }
 
 // Get braille unicode for character from database
 function getBrailleUnicodeForChar(character) {
-    if (brailleData.braille_patterns && brailleData.braille_patterns[character]) {
-        return brailleData.braille_patterns[character].unicode;
+    if (character === ' ') {
+        return '\u2800'; // Braille blank for space
     }
-    return '⠀'; // Default to space
+
+    if (brailleData.braille_patterns && brailleData.braille_patterns[character]) {
+        return brailleData.braille_patterns[character];
+    }
+    return '\u2800'; // Default to space
+}
+
+function getBrailleBinaryForChar(character) {
+    if (character === ' ') {
+        return '000000';
+    }
+
+    if (brailleData.braille_binary_patterns && brailleData.braille_binary_patterns[character]) {
+        return brailleData.braille_binary_patterns[character];
+    }
+
+    return '000000';
 }
 
 // Update display
 function updateView() {
     console.log('updateView called - currentLineText:', currentLineText);
-    
     // Use current line text if available
     if (currentLineText && currentLineText.length > 0) {
         const characters = currentLineText.split('');
@@ -304,11 +301,13 @@ function updateView() {
         
         const currentChar = characters[currentIndex];
         console.log('Current character:', currentChar);
+        console.log('Character code:', currentChar.charCodeAt(0));
         
-        // Update braille dots - we need to get braille pattern for this character
-        const braillePattern = getBraillePatternForChar(currentChar);
-        document.getElementById('braille-dots').innerHTML = renderBrailleDots(braillePattern);
-        
+        // Update braille unicode - get from database
+        const brailleUnicode = getBrailleUnicodeForChar(currentChar);
+        console.log('Braille unicode for "' + currentChar + '":', brailleUnicode);
+        document.getElementById('braille-dots').innerHTML = brailleUnicode;
+   
         // Update character
         document.getElementById('braille-character').textContent = currentChar;
         
@@ -329,7 +328,9 @@ function updateView() {
         // Send to MQTT
         if (mqttClient.connected) {
             try {
-                const decimalValue = brailleToDecimal(braillePattern);
+                const decimalValue = typeof brailleDecimal !== 'undefined' && brailleDecimal !== null
+                    ? String(brailleDecimal)
+                    : brailleToDecimal(brailleBinary);
                 mqttClient.publish(mqttTopic, decimalValue, { qos: 1 }, function(err) {
                     if (err) {
                         updateMqttStatus('Gagal mengirim: ' + err.message, true);
