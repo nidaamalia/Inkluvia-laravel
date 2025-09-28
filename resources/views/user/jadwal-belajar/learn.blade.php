@@ -77,6 +77,23 @@
                 </button>
             </div>
 
+            <!-- Line Controls -->
+            <div class="flex gap-3 justify-center">
+                <button id="btn-line-prev" 
+                        class="px-4 py-2 bg-blue-100 text-blue-700 font-medium rounded-lg hover:bg-blue-200 transition-colors focus:ring-2 focus:ring-blue-400 focus:ring-offset-2"
+                        aria-label="Baris sebelumnya">
+                    <i class="fas fa-angle-up" aria-hidden="true"></i>
+                    Baris Sebelumnya
+                </button>
+
+                <button id="btn-line-next" 
+                        class="px-4 py-2 bg-blue-100 text-blue-700 font-medium rounded-lg hover:bg-blue-200 transition-colors focus:ring-2 focus:ring-blue-400 focus:ring-offset-2"
+                        aria-label="Baris selanjutnya">
+                    Baris Selanjutnya
+                    <i class="fas fa-angle-down" aria-hidden="true"></i>
+                </button>
+            </div>
+
             <!-- Page Controls -->
             <div class="flex gap-3 justify-center">
                 <button id="btn-page-prev" 
@@ -163,7 +180,17 @@
 
 <script>
 // Inject braille data from controller
-const brailleData = {!! $brailleData !!};
+const brailleData = {
+    current_page: {{ $pageNumber }},
+    current_line_index: {{ $currentLineIndex }},
+    total_pages: {{ $totalPages }},
+    total_lines: {{ $totalLines }},
+    lines: @json($lines),
+    material_title: @json($material->judul),
+    material_description: @json($material->deskripsi ?? ''),
+    current_line_text: @json($currentLineText),
+    braille_patterns: @json($braillePatterns)
+};
 
 // MQTT Configuration
 const mqttUrl = '{{ config('mqtt.ws_url') }}';
@@ -178,7 +205,13 @@ const mqttClient = mqtt.connect(mqttUrl, {
 });
 
 let currentIndex = 0;
-let currentPage = 1;
+let currentPage = brailleData.current_page || 1;
+let currentLineIndex = brailleData.current_line_index || 0;
+let currentLineText = brailleData.current_line_text || '';
+let totalLines = brailleData.total_lines || 1;
+
+// Debug: Log data to console
+console.log('Braille Data:', brailleData);
 
 // MQTT Connection Handlers
 mqttClient.on('connect', function() {
@@ -238,46 +271,84 @@ function renderBrailleDots(binary) {
     return html;
 }
 
+// Update braille unicode pattern
+function updateBrailleUnicodePattern(character) {
+    const unicodePattern = getBrailleUnicodeForChar(character);
+    document.getElementById('braille-unicode-pattern').textContent = unicodePattern;
+}
+
+// Get braille pattern for character from database
+function getBraillePatternForChar(character) {
+    if (brailleData.braille_patterns && brailleData.braille_patterns[character]) {
+        return brailleData.braille_patterns[character].binary;
+    }
+    return '000000'; // Default to empty pattern
+}
+
+// Get braille unicode for character from database
+function getBrailleUnicodeForChar(character) {
+    if (brailleData.braille_patterns && brailleData.braille_patterns[character]) {
+        return brailleData.braille_patterns[character].unicode;
+    }
+    return '⠀'; // Default to space
+}
+
 // Update display
 function updateView() {
-    const pageData = brailleData.filter(d => d.halaman == currentPage);
-    if (!pageData.length) return;
+    console.log('updateView called - currentLineText:', currentLineText);
     
-    currentIndex = Math.max(0, Math.min(currentIndex, pageData.length - 1));
-    
-    const current = pageData[currentIndex];
-    
-    // Update braille dots
-    document.getElementById('braille-dots').innerHTML = renderBrailleDots(current.braille);
-    
-    // Update character
-    document.getElementById('braille-character').textContent = current.karakter;
-    
-    // Update page info
-    document.getElementById('page-info').textContent = 
-        `Halaman ${currentPage} • Karakter ${currentIndex + 1} dari ${pageData.length}`;
-    
-    // Update original text with highlighting
-    document.getElementById('original-text').innerHTML = pageData.map((d, i) => {
-        return i === currentIndex 
-            ? `<span class="active-char">${d.karakter}</span>`
-            : d.karakter;
-    }).join(' ');
-    
-    // Send to MQTT
-    if (mqttClient.connected) {
-        try {
-            const decimalValue = brailleToDecimal(current.braille);
-            mqttClient.publish(mqttTopic, decimalValue, { qos: 1 }, function(err) {
-                if (err) {
-                    updateMqttStatus('Gagal mengirim: ' + err.message, true);
-                } else {
-                    updateMqttStatus(`Terkirim: ${current.karakter}`, false);
-                }
-            });
-        } catch (e) {
-            updateMqttStatus('Kesalahan konversi: ' + e.message, true);
+    // Use current line text if available
+    if (currentLineText && currentLineText.length > 0) {
+        const characters = currentLineText.split('');
+        currentIndex = Math.max(0, Math.min(currentIndex, characters.length - 1));
+        
+        const currentChar = characters[currentIndex];
+        console.log('Current character:', currentChar);
+        
+        // Update braille dots - we need to get braille pattern for this character
+        const braillePattern = getBraillePatternForChar(currentChar);
+        document.getElementById('braille-dots').innerHTML = renderBrailleDots(braillePattern);
+        
+        // Update character
+        document.getElementById('braille-character').textContent = currentChar;
+        
+        // Update page info
+        document.getElementById('page-info').textContent = 
+            `Halaman ${currentPage} • Baris ${currentLineIndex + 1} dari ${totalLines} • Karakter ${currentIndex + 1} dari ${characters.length}`;
+        
+        // Update original text with highlighting - show only current line
+        document.getElementById('original-text').innerHTML = characters.map((char, i) => {
+            return i === currentIndex 
+                ? `<span class="active-char">${char}</span>`
+                : char;
+        }).join('');
+        
+        // Update braille unicode pattern above buttons
+        updateBrailleUnicodePattern(currentChar);
+        
+        // Send to MQTT
+        if (mqttClient.connected) {
+            try {
+                const decimalValue = brailleToDecimal(braillePattern);
+                mqttClient.publish(mqttTopic, decimalValue, { qos: 1 }, function(err) {
+                    if (err) {
+                        updateMqttStatus('Gagal mengirim: ' + err.message, true);
+                    } else {
+                        updateMqttStatus(`Terkirim: ${currentChar}`, false);
+                    }
+                });
+            } catch (e) {
+                updateMqttStatus('Kesalahan konversi: ' + e.message, true);
+            }
         }
+    } else {
+        // No data available
+        console.log('No data available');
+        document.getElementById('braille-dots').innerHTML = '';
+        document.getElementById('braille-character').textContent = '';
+        document.getElementById('page-info').textContent = 'Tidak ada data tersedia';
+        document.getElementById('original-text').innerHTML = '';
+        document.getElementById('braille-unicode-pattern').textContent = '⠀';
     }
 }
 
@@ -302,17 +373,41 @@ function speakCharacter() {
 document.addEventListener('DOMContentLoaded', function() {
     // Button controls
     document.getElementById('btn-prev').onclick = function() {
-        currentIndex = Math.max(0, currentIndex - 1);
+        if (currentLineText) {
+            const characters = currentLineText.split('');
+            currentIndex = Math.max(0, currentIndex - 1);
+        }
         updateView();
     };
     
     document.getElementById('btn-next').onclick = function() {
-        const pageData = brailleData.filter(d => d.halaman == currentPage);
-        currentIndex = Math.min(pageData.length - 1, currentIndex + 1);
+        if (currentLineText) {
+            const characters = currentLineText.split('');
+            currentIndex = Math.min(characters.length - 1, currentIndex + 1);
+        }
         updateView();
     };
     
     document.getElementById('btn-read').onclick = speakCharacter;
+    
+    // Line navigation
+    document.getElementById('btn-line-prev').onclick = function() {
+        if (brailleData.lines && currentLineIndex > 0) {
+            currentLineIndex--;
+            currentLineText = brailleData.lines[currentLineIndex] || '';
+            currentIndex = 0; // Reset character index when changing line
+            updateView();
+        }
+    };
+    
+    document.getElementById('btn-line-next').onclick = function() {
+        if (brailleData.lines && currentLineIndex < totalLines - 1) {
+            currentLineIndex++;
+            currentLineText = brailleData.lines[currentLineIndex] || '';
+            currentIndex = 0; // Reset character index when changing line
+            updateView();
+        }
+    };
     
     document.getElementById('btn-page-prev').onclick = function() {
         if (currentPage > 1) {
@@ -354,6 +449,12 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Initial render
     updateView();
+    
+    // Initialize braille unicode pattern
+    if (currentLineText) {
+        const firstChar = currentLineText.charAt(0);
+        updateBrailleUnicodePattern(firstChar);
+    }
     
     // Announce page load
     setTimeout(() => {

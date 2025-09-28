@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Models\Jadwal;
 use App\Models\Device;
 use App\Models\Material;
+use App\Models\MaterialPage;
+use App\Models\BraillePattern;
 use App\Services\MqttService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -204,79 +206,86 @@ class JadwalController extends Controller
         // Update jadwal status
         $jadwal->update(['status' => 'sedang_berlangsung']);
 
-        return redirect()->route('user.jadwal-belajar.learn', $jadwal)
-            ->with('success', 'Materi berhasil dikirim ke perangkat!');
+        return redirect()->route('user.jadwal-belajar.learn', [
+            'jadwal' => $jadwal->id,
+            'page' => 1,
+            'line' => 1
+        ])->with('success', 'Materi berhasil dikirim ke perangkat!');
     }
 
-    public function learn(Jadwal $jadwal)
+    public function learn(Jadwal $jadwal, Request $request)
     {
-        // Generate sample braille data (in real app, this would come from database)
-        $brailleData = $this->generateSampleBrailleData($jadwal->materi);
-
-        return view('user.jadwal-belajar.learn', compact('jadwal', 'brailleData'));
-    }
-
-    /**
-     * Get user's saved materials
-     */
-    private function getUserSavedMaterials()
-    {
-        $user = Auth::user();
-        $userLembagaId = $user->lembaga_id;
-        
-        // Get materials that are both saved by user and accessible
-        return Material::whereIn('id', function($query) use ($user) {
-            $query->select('material_id')
-                ->from('user_saved_materials')
-                ->where('user_id', $user->id);
-        })
-        ->where('status', 'published')
-        ->where(function($q) use ($userLembagaId) {
-            $q->where('akses', 'public')
-              ->orWhere('akses', $userLembagaId);
-        })
-        ->orderBy('judul')
-        ->get();
-    }
-
-    private function generateSampleBrailleData($materi)
-    {
-        // Sample data - in production, this would come from material database
-        $text = $materi ?? "Pengenalan Braille";
-        $data = [];
-        $chars = str_split($text);
-        
-        $brailleMap = [
-            'A' => '100000', 'B' => '110000', 'C' => '100100',
-            'D' => '100110', 'E' => '100010', 'F' => '110100',
-            'G' => '110110', 'H' => '110010', 'I' => '010100',
-            'J' => '010110', 'K' => '101000', 'L' => '111000',
-            'M' => '101100', 'N' => '101110', 'O' => '101010',
-            'P' => '111100', 'Q' => '111110', 'R' => '111010',
-            'S' => '011100', 'T' => '011110', 'U' => '101001',
-            'V' => '111001', 'W' => '010111', 'X' => '101101',
-            'Y' => '101111', 'Z' => '101011', ' ' => '000000',
-        ];
-
-        $page = 1;
-        $charPerPage = 10;
-        
-        foreach ($chars as $index => $char) {
-            $upperChar = strtoupper($char);
-            $braille = $brailleMap[$upperChar] ?? '000000';
-            
-            if ($index > 0 && $index % $charPerPage == 0) {
-                $page++;
-            }
-            
-            $data[] = [
-                'karakter' => $char,
-                'braille' => $braille,
-                'halaman' => $page
-            ];
+        // Check authorization
+        if ($jadwal->user_id !== Auth::id()) {
+            abort(403);
         }
 
-        return json_encode($data);
+        // Cari material berdasarkan judul dari jadwal
+        $material = Material::where('judul', $jadwal->materi)
+            ->published()
+            ->accessibleBy(Auth::user())
+            ->first();
+
+        if (!$material) {
+            return redirect()->route('user.jadwal-belajar')
+                ->with('error', 'Materi tidak ditemukan atau tidak dapat diakses.');
+        }
+
+        // Get page number and line index from request (default to 1)
+        $pageNumber = $request->get('page', 1);
+        $lineIndex = $request->get('line', 1) - 1; // Convert to 0-based index
+
+        // Get material page data and total pages in one query
+        $materialPage = MaterialPage::where('material_id', $material->id)
+            ->where('page_number', $pageNumber)
+            ->first();
+
+        $totalPages = MaterialPage::where('material_id', $material->id)
+            ->max('page_number') ?? 1;
+
+        // Prepare data for view
+        if ($materialPage && $materialPage->lines && !empty($materialPage->lines)) {
+            $lines = $materialPage->lines;
+            $totalLines = count($lines);
+            $currentLineIndex = ($lineIndex >= 0 && $lineIndex < $totalLines) ? $lineIndex : 0;
+            $currentLineText = $lines[$currentLineIndex] ?? '';
+        } else {
+            // No material page data found
+            $lines = [];
+            $totalLines = 0;
+            $currentLineIndex = 0;
+            $currentLineText = '';
+        }
+
+        // Get braille patterns for current line characters
+        $braillePatterns = [];
+        if (!empty($currentLineText)) {
+            $characters = str_split($currentLineText);
+            foreach ($characters as $char) {
+                $pattern = BraillePattern::getByCharacter($char);
+                $braillePatterns[$char] = $pattern ? [
+                    'unicode' => $pattern->braille_unicode,
+                    'binary' => $pattern->dots_binary,
+                    'decimal' => $pattern->dots_decimal
+                ] : [
+                    'unicode' => '⠀',
+                    'binary' => '000000',
+                    'decimal' => 0
+                ];
+            }
+        }
+
+        return view('user.jadwal-belajar.learn', compact(
+            'jadwal', 
+            'material', 
+            'pageNumber', 
+            'totalPages',
+            'lines',
+            'totalLines',
+            'currentLineIndex',
+            'currentLineText',
+            'braillePatterns'
+        ));
     }
 
     /**
@@ -305,6 +314,79 @@ class JadwalController extends Controller
                     'creator_lembaga_type' => $material->creator->lembaga->type ?? null,
                 ];
             })
+        ]);
+    }
+
+    /**
+     * Navigate to specific page of material
+     */
+    public function navigatePage(Jadwal $jadwal, Request $request)
+    {
+        $page = $request->get('page', 1);
+        $line = $request->get('line', 1);
+        
+        return redirect()->route('user.jadwal-belajar.learn', [
+            'jadwal' => $jadwal->id,
+            'page' => $page,
+            'line' => $line
+        ]);
+    }
+
+    /**
+     * Get material page data via AJAX
+     */
+    public function getMaterialPage(Jadwal $jadwal, Request $request)
+    {
+        // Check authorization
+        if ($jadwal->user_id !== Auth::id()) {
+            return response()->json(['error' => 'Unauthorized'], 403);
+        }
+
+        $pageNumber = $request->get('page', 1);
+        $lineIndex = $request->get('line', 1) - 1; // Convert to 0-based index
+
+        // Cari material berdasarkan judul dari jadwal
+        $material = Material::where('judul', $jadwal->materi)
+            ->published()
+            ->accessibleBy(Auth::user())
+            ->first();
+
+        if (!$material) {
+            return response()->json(['error' => 'Materi tidak ditemukan'], 404);
+        }
+
+        // Get material page data
+        $materialPage = MaterialPage::where('material_id', $material->id)
+            ->where('page_number', $pageNumber)
+            ->first();
+
+        if (!$materialPage) {
+            return response()->json(['error' => 'Halaman tidak ditemukan'], 404);
+        }
+
+        // Get total pages
+        $totalPages = MaterialPage::where('material_id', $material->id)
+            ->max('page_number') ?? 1;
+
+        $lines = $materialPage->lines;
+        $totalLines = count($lines);
+        $currentLineIndex = ($lineIndex >= 0 && $lineIndex < $totalLines) ? $lineIndex : 0;
+        $currentLineText = $lines[$currentLineIndex] ?? '';
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'current_page' => $pageNumber,
+                'current_line_index' => $currentLineIndex,
+                'total_pages' => $totalPages,
+                'total_lines' => $totalLines,
+                'lines' => $lines,
+                'material_title' => $material->judul,
+                'material_description' => $material->deskripsi,
+                'current_line_text' => $currentLineText,
+                'has_previous' => $pageNumber > 1,
+                'has_next' => $pageNumber < $totalPages
+            ]
         ]);
     }
 }
