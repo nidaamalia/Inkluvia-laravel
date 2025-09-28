@@ -36,6 +36,14 @@ class Jadwal extends Model
     }
 
     /**
+     * The devices that belong to the jadwal.
+     */
+    public function devices()
+    {
+        return $this->belongsToMany(Device::class, 'device_jadwal', 'jadwal_id', 'device_id');
+    }
+
+    /**
      * Get status badge color
      */
     public function getStatusColorAttribute()

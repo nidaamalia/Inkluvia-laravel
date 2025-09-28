@@ -223,6 +223,13 @@ class JadwalController extends Controller
         ])->with('success', 'Materi berhasil dikirim ke perangkat!');
     }
 
+    /**
+     * Display the learning page with content formatted for the selected devices
+     *
+     * @param Jadwal $jadwal
+     * @param Request $request
+     * @return \Illuminate\View\View
+     */
     public function learn(Jadwal $jadwal, Request $request)
     {
         // Check authorization
@@ -230,8 +237,8 @@ class JadwalController extends Controller
             abort(403);
         }
 
-        // Cari material berdasarkan judul dari jadwal
-        $material = Material::where('judul', $jadwal->materi)
+        // Get material based on schedule
+        $material = $jadwal->material ?? Material::where('judul', $jadwal->materi)
             ->published()
             ->accessibleBy(Auth::user())
             ->first();
@@ -241,11 +248,10 @@ class JadwalController extends Controller
                 ->with('error', 'Materi tidak ditemukan atau tidak dapat diakses.');
         }
 
-        // Get page number and line index from request (default to 1)
-        $pageNumber = $request->get('page', 1);
-        $lineIndex = $request->get('line', 1) - 1; // Convert to 0-based index
-
-        // Get material page data and total pages in one query
+        // Get page number from request (default to 1)
+        $pageNumber = max(1, (int)$request->get('page', 1));
+        
+        // Get the current material page and total pages
         $materialPage = MaterialPage::where('material_id', $material->id)
             ->where('page_number', $pageNumber)
             ->first();
@@ -253,36 +259,80 @@ class JadwalController extends Controller
         $totalPages = MaterialPage::where('material_id', $material->id)
             ->max('page_number') ?? 1;
 
-        // Prepare data for view
+        // Initialize variables
+        $pageContent = '';
+        $originalLines = [];
+        $currentLineIndex = 0; // Initialize with default value
+        
+        // Get content from material page or use empty string if not found
         if ($materialPage && $materialPage->lines && !empty($materialPage->lines)) {
-            $lines = $materialPage->lines;
-            $totalLines = count($lines);
-            $currentLineIndex = ($lineIndex >= 0 && $lineIndex < $totalLines) ? $lineIndex : 0;
-            $currentLineText = $lines[$currentLineIndex] ?? '';
-        } else {
-            // No material page data found
-            $lines = [];
-            $totalLines = 0;
-            $currentLineIndex = 0;
-            $currentLineText = '';
+            $originalLines = $materialPage->lines;
+            $pageContent = implode("\n", $materialPage->lines);
+            
+            // Handle line parameter with bounds checking
+            $lineParam = $request->get('line', 1);
+            if ($lineParam === 'last') {
+                $currentLineIndex = count($originalLines) - 1;
+            } else {
+                $currentLineIndex = max(0, min((int)$lineParam - 1, count($originalLines) - 1));
+            }
         }
-
-        // Get braille patterns for current line characters
+        
+        // Get selected device IDs from the schedule
+        $deviceIds = $jadwal->devices->pluck('id')->toArray();
+        
+        // Get the minimum character capacity from devices (default to 5 for testing)
+        $characterCapacity = 5; // Default for testing
+        if (!empty($deviceIds)) {
+            $minCapacity = \App\Models\Device::whereIn('id', $deviceIds)
+                ->min('character_capacity');
+            $characterCapacity = $minCapacity ?: 5;
+        }
+        
+        // Get the current line text with bounds checking
+        $currentLineText = isset($originalLines[$currentLineIndex]) ? $originalLines[$currentLineIndex] : '';
+        
+        // Split the current line into chunks of characterCapacity
+        $lineChunks = $currentLineText ? str_split($currentLineText, $characterCapacity) : [];
+        
+        // Handle 'last' chunk parameter with bounds checking
+        $chunkParam = $request->get('chunk', 1);
+        if ($chunkParam === 'last') {
+            $currentChunk = !empty($lineChunks) ? count($lineChunks) - 1 : 0;
+        } else {
+            $currentChunk = max(0, min((int)$chunkParam - 1, !empty($lineChunks) ? count($lineChunks) - 1 : 0));
+        }
+        
+        // Ensure currentChunk is within bounds
+        $currentChunk = min($currentChunk, count($lineChunks) - 1);
+        $currentChunk = max(0, $currentChunk);
+        
+        $currentChunkText = $lineChunks[$currentChunk] ?? '';
+        
+        // Prepare pagination data
+        $totalChunks = count($lineChunks);
+        $hasNextChunk = $currentChunk < $totalChunks - 1;
+        $hasNextLine = $currentLineIndex < count($originalLines) - 1;
+        
+        $paginated = [
+            'current_page' => $pageNumber,
+            'total_pages' => $totalPages,
+            'current_line' => $currentLineIndex + 1,
+            'total_lines' => count($originalLines),
+            'current_chunk' => $currentChunk + 1,
+            'total_chunks' => $totalChunks,
+            'has_next_chunk' => $hasNextChunk,
+            'has_next_line' => $hasNextLine,
+            'has_previous' => $currentChunk > 0 || $currentLineIndex > 0
+        ];
         $braillePatterns = [];
         $brailleBinaryPatterns = [];
         $brailleDecimalPatterns = [];
 
         if (!empty($currentLineText)) {
             $characters = str_split($currentLineText);
+            // Process each character for braille patterns
             foreach ($characters as $char) {
-                if ($char === ' ') {
-                    // Space handled locally without DB lookup
-                    $braillePatterns[$char] = '⠀';
-                    $brailleBinaryPatterns[$char] = '000000';
-                    $brailleDecimalPatterns[$char] = 0;
-                    continue;
-                }
-
                 $pattern = BraillePattern::getByCharacter($char);
                 $braillePatterns[$char] = $pattern ? $pattern->braille_unicode : '⠀';
                 $brailleBinaryPatterns[$char] = $pattern ? $pattern->dots_binary : '000000';
@@ -290,24 +340,38 @@ class JadwalController extends Controller
             }
         }
 
-        return view('user.jadwal-belajar.learn', compact(
-            'jadwal', 
-            'material', 
-            'pageNumber', 
-            'totalPages',
-            'lines',
-            'totalLines',
-            'currentLineIndex',
-            'currentLineText',
-            'braillePatterns',
-            'brailleBinaryPatterns',
-            'brailleDecimalPatterns'
-        ));
+        // Prepare view data
+        $viewData = [
+            'jadwal' => $jadwal,
+            'material' => $material,
+            'pageNumber' => $pageNumber,
+            'currentPage' => $paginated['current_page'],
+            'totalPages' => $paginated['total_pages'],
+            'currentLine' => $paginated['current_line'],
+            'currentLineIndex' => $currentLineIndex,
+            'currentChunk' => $paginated['current_chunk'],
+            'totalLines' => $paginated['total_lines'],
+            'totalChunks' => $paginated['total_chunks'],
+            'currentLineText' => $currentLineText,
+            'currentChunkText' => $currentChunkText,
+            'characterCapacity' => $characterCapacity,
+            'braillePatterns' => $braillePatterns,
+            'brailleBinaryPatterns' => $brailleBinaryPatterns,
+            'brailleDecimalPatterns' => $brailleDecimalPatterns,
+            'hasNextChunk' => $paginated['has_next_chunk'],
+            'hasNextLine' => $paginated['has_next_line'],
+            'hasPrevious' => $paginated['has_previous'],
+            'deviceCount' => count($deviceIds),
+            'lines' => $originalLines,
+            'originalLines' => $originalLines
+        ];
+
+        return view('user.jadwal-belajar.learn', $viewData);
     }
 
     /**
      * Method helper untuk mendapatkan materi yang dapat diakses user
-     * Digunakan untuk debugging dan testing
+{{ ... }}
      */
     public function getAccessibleMaterials()
     {
@@ -419,16 +483,17 @@ class JadwalController extends Controller
                 'current_page' => $pageNumber,
                 'current_line_index' => $currentLineIndex,
                 'total_pages' => $totalPages,
-                'total_lines' => $totalLines,
-                'lines' => $lines,
-                'material_title' => $material->judul,
-                'material_description' => $material->deskripsi,
-                'current_line_text' => $currentLineText,
-                'has_previous' => $pageNumber > 1,
-                'has_next' => $pageNumber < $totalPages,
-                'braille_patterns' => $braillePatterns,
-                'braille_binary_patterns' => $brailleBinaryPatterns,
-                'braille_decimal_patterns' => $brailleDecimalPatterns,
+                'lines' => $paginated['lines'],
+                'currentPage' => $paginated['current_page'],
+                'totalPages' => $paginated['total_pages'],
+                'currentLine' => $lineIndex + 1,
+                'currentLineText' => $currentLineText,
+                'braillePatterns' => $braillePatterns,
+                'brailleBinaryPatterns' => $brailleBinaryPatterns,
+                'brailleDecimalPatterns' => $brailleDecimalPatterns,
+                'hasNext' => $paginated['has_next'],
+                'hasPrevious' => $paginated['has_previous'],
+                'deviceCount' => count($deviceIds)
             ]
         ]);
     }

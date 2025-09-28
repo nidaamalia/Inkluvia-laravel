@@ -31,84 +31,175 @@
     <!-- Braille Display -->
     <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-8 mb-6">
         <div class="text-center mb-8">
-            <h2 class="text-lg font-semibold text-primary mb-4">Pengenalan Braille</h2>
+            <h2 class="text-lg font-semibold text-primary mb-4">Teks Asli (Baris {{ $currentLine }} dari {{ $totalLines }})</h2>
             
-            <!-- Braille Dots -->
-            <div id="braille-display" class="mb-6" aria-label="Tampilan pola braille">
-                <div id="braille-dots" class="inline-block"></div>
+            <!-- Original Text Display -->
+            <div class="mb-6 p-4 bg-gray-50 rounded-lg">
+                <p class="text-lg">{{ $currentLineText }}</p>
+            </div>
+            
+            <h3 class="text-md font-semibold text-gray-700 mb-3">Tampilan Braille ({{ $characterCapacity }} karakter per baris)</h3>
+            
+            <!-- Braille Display -->
+            <div id="braille-display" class="mb-6 p-4 bg-gray-100 rounded-lg" aria-label="Tampilan pola braille">
+                <div class="text-4xl mb-2">
+                    @foreach(str_split($currentChunkText) as $char)
+                        <span class="braille-char" style="margin: 0 2px;">
+                            {{ $braillePatterns[$char] ?? '⠀' }}
+                        </span>
+                    @endforeach
+                </div>
+                <div class="text-sm text-gray-500">
+                    @foreach(str_split($currentChunkText) as $char)
+                        <span style="display: inline-block; width: 24px; text-align: center;">
+                            {{ $char === ' ' ? '␣' : $char }}
+                        </span>
+                    @endforeach
+                </div>
+                <div class="text-xs text-gray-400 mt-2">
+                    Chunk {{ $currentChunk }} dari {{ $totalChunks }}
+                </div>
             </div>
 
-            <!-- Character Display -->
-            <div id="braille-character" 
-                 class="text-6xl font-bold text-gray-900 mb-4"
-                 aria-live="polite"
-                 aria-atomic="true"></div>
-
-            <!-- Page Info -->
-            <div id="page-info" 
-                 class="text-gray-600"
-                 role="status"
-                 aria-live="polite"></div>
-        </div>
+            <!-- Navigation Info -->
+            <div id="navigation-info" class="text-gray-600 text-sm mb-4">
+                <div>Halaman {{ $pageNumber }} dari {{ $totalPages }}</div>
+                <div>Baris {{ $currentLine }} dari {{ $totalLines }}</div>
+            </div>
 
         <!-- Navigation Controls -->
-        <div class="space-y-4">
-            <!-- Main Controls -->
-            <div class="flex flex-wrap gap-3 justify-center">
-                <button id="btn-prev" 
-                        class="px-6 py-3 bg-white border-2 border-primary text-primary font-medium rounded-lg hover:bg-primary hover:text-white transition-colors focus:ring-2 focus:ring-primary focus:ring-offset-2"
-                        aria-label="Karakter sebelumnya">
-                    <i class="fas fa-chevron-left mr-2" aria-hidden="true"></i>
-                    Sebelumnya
-                </button>
+        <div class="space-y-3">
+            <!-- Row 1: Chunk Navigation -->
+            <div class="grid grid-cols-2 gap-3">
+                <!-- Previous Chunk -->
+                <div>
+                    @if($currentChunk > 1 || $currentLine > 1 || $pageNumber > 1)
+                        <a href="{{ route('user.jadwal-belajar.learn', [
+                            'jadwal' => $jadwal->id, 
+                            'page' => $currentChunk > 1 ? $pageNumber : ($currentLine > 1 ? $pageNumber : $pageNumber - 1), 
+                            'line' => $currentChunk > 1 ? $currentLine : ($currentLine > 1 ? $currentLine - 1 : 'last'), 
+                            'chunk' => $currentChunk > 1 ? $currentChunk - 1 : 'last'
+                        ]) }}"
+                           class="w-full flex items-center justify-center px-3 py-3 bg-white border-2 border-primary text-primary font-medium rounded-lg hover:bg-primary hover:text-white transition-colors focus:ring-2 focus:ring-primary focus:ring-offset-2"
+                           aria-label="Chunk sebelumnya">
+                            <i class="fas fa-chevron-left mr-2" aria-hidden="true"></i>
+                            <span class="whitespace-nowrap">Chunk Sebelumnya</span>
+                        </a>
+                    @else
+                        <button disabled class="w-full flex items-center justify-center px-3 py-3 bg-gray-100 text-gray-400 font-medium rounded-lg cursor-not-allowed">
+                            <i class="fas fa-chevron-left mr-2" aria-hidden="true"></i>
+                            <span class="whitespace-nowrap">Chunk Sebelumnya</span>
+                        </button>
+                    @endif
+                </div>
 
-                <button id="btn-read" 
-                        class="px-6 py-3 bg-primary text-white font-medium rounded-lg hover:bg-primary-dark transition-colors focus:ring-2 focus:ring-primary focus:ring-offset-2"
-                        aria-label="Baca karakter dengan suara">
-                    <i class="fas fa-volume-up mr-2" aria-hidden="true"></i>
-                    Baca
-                </button>
-
-                <button id="btn-next" 
-                        class="px-6 py-3 bg-white border-2 border-primary text-primary font-medium rounded-lg hover:bg-primary hover:text-white transition-colors focus:ring-2 focus:ring-primary focus:ring-offset-2"
-                        aria-label="Karakter selanjutnya">
-                    Selanjutnya
-                    <i class="fas fa-chevron-right ml-2" aria-hidden="true"></i>
-                </button>
+                <!-- Next Chunk -->
+                <div>
+                    @if($hasNextChunk || $hasNextLine || $pageNumber < $totalPages)
+                        <a href="{{ route('user.jadwal-belajar.learn', [
+                            'jadwal' => $jadwal->id, 
+                            'page' => $hasNextChunk ? $pageNumber : ($hasNextLine ? $pageNumber : $pageNumber + 1), 
+                            'line' => $hasNextChunk ? $currentLine : ($hasNextLine ? $currentLine + 1 : 1), 
+                            'chunk' => $hasNextChunk ? $currentChunk + 1 : 1
+                        ]) }}" 
+                           class="w-full flex items-center justify-center px-3 py-3 bg-white border-2 border-primary text-primary font-medium rounded-lg hover:bg-primary hover:text-white transition-colors focus:ring-2 focus:ring-primary focus:ring-offset-2"
+                           aria-label="Chunk selanjutnya">
+                            <span class="whitespace-nowrap">Chunk Berikutnya</span>
+                            <i class="fas fa-chevron-right ml-2" aria-hidden="true"></i>
+                        </a>
+                    @else
+                        <button disabled class="w-full flex items-center justify-center px-3 py-3 bg-gray-100 text-gray-400 font-medium rounded-lg cursor-not-allowed">
+                            <span class="whitespace-nowrap">Chunk Berikutnya</span>
+                            <i class="fas fa-chevron-right ml-2" aria-hidden="true"></i>
+                        </button>
+                    @endif
+                </div>
             </div>
 
-            <!-- Line Controls -->
-            <div class="flex gap-3 justify-center">
-                <button id="btn-line-prev" 
-                        class="px-4 py-2 bg-blue-100 text-blue-700 font-medium rounded-lg hover:bg-blue-200 transition-colors focus:ring-2 focus:ring-blue-400 focus:ring-offset-2"
-                        aria-label="Baris sebelumnya">
-                    <i class="fas fa-angle-up" aria-hidden="true"></i>
-                    Baris Sebelumnya
-                </button>
+            <!-- Row 2: Line Navigation -->
+            <div class="grid grid-cols-2 gap-3">
+                <!-- Previous Line -->
+                <div>
+                    @if($currentLine > 1 || $pageNumber > 1)
+                        <a href="{{ route('user.jadwal-belajar.learn', [
+                            'jadwal' => $jadwal->id, 
+                            'page' => $currentLine > 1 ? $pageNumber : $pageNumber - 1, 
+                            'line' => $currentLine > 1 ? $currentLine - 1 : 'last', 
+                            'chunk' => 'last'
+                        ]) }}"
+                           class="w-full flex items-center justify-center px-3 py-3 bg-blue-50 border-2 border-blue-200 text-blue-700 font-medium rounded-lg hover:bg-blue-100 transition-colors focus:ring-2 focus:ring-blue-400 focus:ring-offset-2"
+                           aria-label="Baris sebelumnya">
+                            <i class="fas fa-chevron-up mr-2" aria-hidden="true"></i>
+                            <span class="whitespace-nowrap">Baris Sebelumnya</span>
+                        </a>
+                    @else
+                        <button disabled class="w-full flex items-center justify-center px-3 py-3 bg-gray-100 text-gray-400 font-medium rounded-lg cursor-not-allowed">
+                            <i class="fas fa-chevron-up mr-2" aria-hidden="true"></i>
+                            <span class="whitespace-nowrap">Baris Sebelumnya</span>
+                        </button>
+                    @endif
+                </div>
 
-                <button id="btn-line-next" 
-                        class="px-4 py-2 bg-blue-100 text-blue-700 font-medium rounded-lg hover:bg-blue-200 transition-colors focus:ring-2 focus:ring-blue-400 focus:ring-offset-2"
-                        aria-label="Baris selanjutnya">
-                    Baris Selanjutnya
-                    <i class="fas fa-angle-down" aria-hidden="true"></i>
-                </button>
+                <!-- Next Line -->
+                <div>
+                    @if($hasNextLine || $pageNumber < $totalPages)
+                        <a href="{{ route('user.jadwal-belajar.learn', [
+                            'jadwal' => $jadwal->id, 
+                            'page' => $hasNextLine ? $pageNumber : $pageNumber + 1, 
+                            'line' => $hasNextLine ? $currentLine + 1 : 1, 
+                            'chunk' => 1
+                        ]) }}" 
+                           class="w-full flex items-center justify-center px-3 py-3 bg-blue-50 border-2 border-blue-200 text-blue-700 font-medium rounded-lg hover:bg-blue-100 transition-colors focus:ring-2 focus:ring-blue-400 focus:ring-offset-2"
+                           aria-label="Baris selanjutnya">
+                            <span class="whitespace-nowrap">Baris Berikutnya</span>
+                            <i class="fas fa-chevron-down ml-2" aria-hidden="true"></i>
+                        </a>
+                    @else
+                        <button disabled class="w-full flex items-center justify-center px-3 py-3 bg-gray-100 text-gray-400 font-medium rounded-lg cursor-not-allowed">
+                            <span class="whitespace-nowrap">Baris Berikutnya</span>
+                            <i class="fas fa-chevron-down ml-2" aria-hidden="true"></i>
+                        </button>
+                    @endif
+                </div>
             </div>
 
-            <!-- Page Controls -->
-            <div class="flex gap-3 justify-center">
-                <button id="btn-page-prev" 
-                        class="px-4 py-2 bg-gray-100 text-gray-700 font-medium rounded-lg hover:bg-gray-200 transition-colors focus:ring-2 focus:ring-gray-400 focus:ring-offset-2"
-                        aria-label="Halaman sebelumnya">
-                    <i class="fas fa-angle-double-left" aria-hidden="true"></i>
-                    Halaman Sebelumnya
-                </button>
+            <!-- Row 3: Page Navigation -->
+            <div class="grid grid-cols-2 gap-3">
+                <!-- Previous Page -->
+                <div>
+                    @if($pageNumber > 1)
+                        <a href="{{ route('user.jadwal-belajar.learn', ['jadwal' => $jadwal->id, 'page' => $pageNumber - 1, 'line' => 1, 'chunk' => 1]) }}"
+                           class="w-full flex items-center justify-center px-3 py-3 bg-white border-2 border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors focus:ring-2 focus:ring-gray-400 focus:ring-offset-2"
+                           aria-label="Halaman sebelumnya">
+                            <i class="fas fa-chevron-double-left mr-2" aria-hidden="true"></i>
+                            <span class="whitespace-nowrap">Halaman Sebelumnya</span>
+                        </a>
+                    @else
+                        <button disabled class="w-full flex items-center justify-center px-3 py-3 bg-gray-100 text-gray-400 font-medium rounded-lg cursor-not-allowed">
+                            <i class="fas fa-chevron-double-left mr-2" aria-hidden="true"></i>
+                            <span class="whitespace-nowrap">Halaman Sebelumnya</span>
+                        </button>
+                    @endif
+                </div>
 
-                <button id="btn-page-next" 
-                        class="px-4 py-2 bg-gray-100 text-gray-700 font-medium rounded-lg hover:bg-gray-200 transition-colors focus:ring-2 focus:ring-gray-400 focus:ring-offset-2"
-                        aria-label="Halaman selanjutnya">
-                    Halaman Selanjutnya
-                    <i class="fas fa-angle-double-right" aria-hidden="true"></i>
-                </button>
+                <!-- Next Page / Complete -->
+                <div>
+                    @if($pageNumber < $totalPages)
+                        <a href="{{ route('user.jadwal-belajar.learn', ['jadwal' => $jadwal->id, 'page' => $pageNumber + 1, 'line' => 1, 'chunk' => 1]) }}" 
+                           class="w-full flex items-center justify-center px-3 py-3 bg-white border-2 border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors focus:ring-2 focus:ring-gray-400 focus:ring-offset-2"
+                           aria-label="Halaman selanjutnya">
+                            <span class="whitespace-nowrap">Halaman Berikutnya</span>
+                            <i class="fas fa-chevron-double-right ml-2" aria-hidden="true"></i>
+                        </a>
+                    @else
+                        <a href="{{ route('user.jadwal-belajar.complete', $jadwal) }}" 
+                           class="w-full flex items-center justify-center px-3 py-3 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 transition-colors focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
+                           aria-label="Selesai belajar">
+                            <span class="whitespace-nowrap">Selesai Belajar</span>
+                            <i class="fas fa-check-circle ml-2" aria-hidden="true"></i>
+                        </a>
+                    @endif
+                </div>
             </div>
         </div>
 
@@ -122,12 +213,20 @@
         </div>
     </div>
 
-    <!-- Original Text -->
+    <!-- Full Text Preview -->
     <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <h3 class="text-lg font-semibold text-gray-900 mb-4">Teks Original</h3>
-        <div id="original-text" 
-             class="text-xl leading-relaxed tracking-wide"
-             aria-label="Teks lengkap materi pembelajaran"></div>
+        <h3 class="text-lg font-semibold text-gray-900 mb-4">Pratinjau Teks Lengkap</h3>
+        <div class="space-y-2">
+            @foreach($originalLines as $index => $line)
+                <div class="p-2 rounded {{ $index + 1 == $currentLine ? 'bg-blue-50 border-l-4 border-blue-500' : '' }}">
+                    @if($index + 1 == $currentLine)
+                        <strong>Baris {{ $index + 1 }}:</strong> {{ $line }}
+                    @else
+                        <span class="text-gray-600">Baris {{ $index + 1 }}:</span> {{ $line }}
+                    @endif
+                </div>
+            @endforeach
+        </div>
     </div>
 
     <!-- Keyboard Shortcuts Info -->
