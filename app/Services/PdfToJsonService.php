@@ -79,16 +79,14 @@ class PdfToJsonService
             }
             
             $paramString = implode(' ', $params);
-            // Use the full path to Python directly (faster)
-            $pythonCmd = 'C:\Python313\python.exe';
-            
-            // Verify Python exists
-            if (!file_exists($pythonCmd)) {
-                Log::error('Python not found at: ' . $pythonCmd);
+            $pythonCmd = $this->resolvePythonCommand();
+
+            if ($this->isExplicitPath($pythonCmd) && !file_exists($pythonCmd)) {
+                Log::error('Python not found at configured path: ' . $pythonCmd);
                 return null;
             }
-            
-            $cmd = "{$pythonCmd} {$pythonScript} {$pdfFile} -o {$outputFileEscaped} {$paramString}";
+
+            $cmd = trim("{$pythonCmd} {$pythonScript} {$pdfFile} -o {$outputFileEscaped} {$paramString}");
             
             Log::info('Executing command via cmd: ' . $cmd);
             
@@ -225,5 +223,31 @@ class PdfToJsonService
         if (Storage::disk('private')->exists($jsonPath)) {
             Storage::disk('private')->delete($jsonPath);
         }
+    }
+
+    /**
+     * Determine which Python command to execute for conversion.
+     */
+    protected function resolvePythonCommand(): string
+    {
+        $configured = config('services.python.binary') ?? env('PYTHON_BINARY');
+
+        if ($configured) {
+            return trim($configured);
+        }
+
+        if (PHP_OS_FAMILY === 'Windows') {
+            return 'py -3';
+        }
+
+        return 'python3';
+    }
+
+    /**
+     * Determine if the provided command is an explicit filesystem path.
+     */
+    protected function isExplicitPath(string $command): bool
+    {
+        return str_contains($command, ':') || str_contains($command, '\\') || str_contains($command, '/');
     }
 }

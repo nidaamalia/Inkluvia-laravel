@@ -7,6 +7,7 @@ use App\Models\Device;
 use App\Models\Material;
 use App\Models\MaterialPage;
 use App\Models\BraillePattern;
+use App\Models\UserSavedMaterial;
 use App\Services\MqttService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -54,14 +55,16 @@ class JadwalController extends Controller
 
     public function create()
     {
-        // Ambil materi yang dapat diakses oleh user berdasarkan aturan akses
-        $materials = Material::published()
-            ->accessibleBy(Auth::user())
-            ->orderBy('judul')
-            ->pluck('judul', 'judul')
-            ->toArray();
+        $savedMaterialIds = UserSavedMaterial::where('user_id', Auth::id())
+            ->pluck('material_id');
 
-        return view('user.jadwal-belajar.create', compact('materials'));
+        $savedMaterials = Material::published()
+            ->accessibleBy(Auth::user())
+            ->whereIn('id', $savedMaterialIds)
+            ->orderBy('judul')
+            ->get();
+
+        return view('user.jadwal-belajar.create', compact('savedMaterials'));
     }
 
     public function store(Request $request)
@@ -105,12 +108,14 @@ class JadwalController extends Controller
             abort(403);
         }
 
-        // Ambil materi yang dapat diakses oleh user berdasarkan aturan akses
-        $materials = Material::published()
+        $savedMaterialIds = UserSavedMaterial::where('user_id', Auth::id())
+            ->pluck('material_id');
+
+        $savedMaterials = Material::published()
             ->accessibleBy(Auth::user())
+            ->whereIn('id', $savedMaterialIds)
             ->orderBy('judul')
-            ->pluck('judul', 'judul')
-            ->toArray();
+            ->get();
 
         return view('user.jadwal-belajar.edit', compact('jadwal', 'savedMaterials'));
     }

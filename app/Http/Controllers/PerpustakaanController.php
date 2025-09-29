@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Requests\StoreLibraryMaterialRequest;
 use App\Models\Material;
 use App\Models\Device;
 use App\Models\UserSavedMaterial;
@@ -432,105 +431,5 @@ class PerpustakaanController extends Controller
 
         $char = strtolower($char);
         return $brailleMap[$char] ?? '111111'; // Default pattern for unknown chars
-    }
-
-    public function store(
-        StoreLibraryMaterialRequest $request,
-        MaterialMetadataService $metadataService
-    ): RedirectResponse {
-        $user = Auth::user();
-        $file = $request->file('material_file');
-
-        if (! $file) {
-            return back()->withErrors(['material_file' => 'Berkas materi tidak ditemukan.']);
-        }
-
-        $aiMessages = [];
-        $metadata = $this->prepareMetadata($request, $file, $metadataService, $aiMessages);
-
-        if ($file->getSize() > 1024 * 1024) {
-            $path = Storage::disk('public')->putFile('material_requests', $file);
-
-            MaterialRequest::create([
-                'judul_materi' => $metadata['judul'] ?? $this->fallbackTitle($file),
-                'deskripsi' => $metadata['deskripsi'] ?? 'Request otomatis dari unggahan perpustakaan.',
-                'kategori' => $metadata['kategori'] ?? 'umum',
-                'tingkat' => $metadata['tingkat'] ?? 'umum',
-                'prioritas' => MaterialRequest::PRIORITY_MEDIUM,
-                'status' => MaterialRequest::STATUS_PENDING,
-                'requested_by' => $user->id,
-                'admin_notes' => 'Lampiran tersedia di storage: '.$path,
-            ]);
-
-            return redirect()
-                ->route('user.request-materi')
-                ->with('status', 'Berkas lebih dari 1 MB. Kami buatkan request materi otomatis untuk diproses admin.')
-                ->with('ai_messages', $aiMessages);
-        }
-
-        try {
-            DB::transaction(function () use ($file, $metadata, $user) {
-                $path = Storage::disk('public')->putFile('materials', $file);
-
-                Material::create([
-                    'judul' => $metadata['judul'] ?? $this->fallbackTitle($file),
-                    'deskripsi' => $metadata['deskripsi'] ?? null,
-                    'kategori' => $metadata['kategori'] ?? 'umum',
-                    'tingkat' => $metadata['tingkat'] ?? 'umum',
-                    'status' => 'draft',
-                    'akses' => 'private',
-                    'created_by' => $user->id,
-                    'total_halaman' => null,
-                    'file_path' => $path,
-                ]);
-            });
-        } catch (\Throwable $e) {
-            Log::error('Gagal menyimpan materi perpustakaan.', [
-                'error' => $e->getMessage(),
-            ]);
-
-            return back()->withErrors(['material_file' => 'Gagal menyimpan materi. Silakan coba lagi.']);
-        }
-
-        return redirect()
-            ->route('user.perpustakaan')
-            ->with('status', 'Materi berhasil diunggah sebagai draft. Anda dapat mengelolanya pada halaman manajemen materi.')
-            ->with('ai_messages', $aiMessages);
-    }
-
-    protected function prepareMetadata(
-        StoreLibraryMaterialRequest $request,
-        \Illuminate\Http\UploadedFile $file,
-        MaterialMetadataService $metadataService,
-        array &$aiMessages
-    ): array {
-        $metadata = [
-            'judul' => $request->input('judul'),
-            'deskripsi' => $request->input('deskripsi'),
-            'kategori' => $request->input('kategori'),
-            'tingkat' => $request->input('tingkat'),
-        ];
-
-        if ($request->boolean('gunakan_ai')) {
-            try {
-                $generated = $metadataService->generateMetadata($file);
-                $metadata = array_merge($generated, array_filter($metadata));
-                $aiMessages[] = 'Metadata diisi otomatis menggunakan AI.';
-            } catch (\Throwable $e) {
-                Log::warning('Gagal menghasilkan metadata AI.', ['error' => $e->getMessage()]);
-                $aiMessages[] = 'AI tidak dapat mengisi metadata, silakan lengkapi secara manual.';
-            }
-        }
-
-        $metadata['judul'] = $metadata['judul'] ?? $this->fallbackTitle($file);
-        $metadata['kategori'] = $metadata['kategori'] ?? 'umum';
-        $metadata['tingkat'] = $metadata['tingkat'] ?? 'umum';
-
-        return $metadata;
-    }
-
-    protected function fallbackTitle(\Illuminate\Http\UploadedFile $file): string
-    {
-        return Str::title(pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME));
     }
 }

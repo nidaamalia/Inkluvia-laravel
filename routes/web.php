@@ -9,7 +9,6 @@ use App\Http\Controllers\PerpustakaanController;
 use App\Http\Controllers\MaterialController;
 use App\Http\Controllers\MaterialRequestController;
 use App\Http\Controllers\JadwalController;
-use App\Http\Controllers\PerpustakaanController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {

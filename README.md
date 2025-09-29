@@ -51,6 +51,8 @@ php artisan migrate
 php artisan db:seed
 ```
 
+python -m pip install pymupdf
+
 ### 7. Jalankan Server
 - Aktifkan MySQL pada XAMPP Control Panel
 - Start server Laravel:
