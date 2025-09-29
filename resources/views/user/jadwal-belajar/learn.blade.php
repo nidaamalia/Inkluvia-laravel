@@ -86,7 +86,7 @@
                 <!-- Previous Chunk -->
                 <div>
                     @if($currentChunk > 1 || $currentLine > 1 || $pageNumber > 1)
-                        <a href="{{ route('user.jadwal-belajar.learn', [
+                        <a id="link-chunk-prev" href="{{ route('user.jadwal-belajar.learn', [
                             'jadwal' => $jadwal->id, 
                             'page' => $currentChunk > 1 ? $pageNumber : ($currentLine > 1 ? $pageNumber : $pageNumber - 1), 
                             'line' => $currentChunk > 1 ? $currentLine : ($currentLine > 1 ? $currentLine - 1 : 'last'), 
@@ -108,7 +108,7 @@
                 <!-- Next Chunk -->
                 <div>
                     @if($hasNextChunk || $hasNextLine || $pageNumber < $totalPages)
-                        <a href="{{ route('user.jadwal-belajar.learn', [
+                        <a id="link-chunk-next" href="{{ route('user.jadwal-belajar.learn', [
                             'jadwal' => $jadwal->id, 
                             'page' => $hasNextChunk ? $pageNumber : ($hasNextLine ? $pageNumber : $pageNumber + 1), 
                             'line' => $hasNextChunk ? $currentLine : ($hasNextLine ? $currentLine + 1 : 1), 
@@ -133,7 +133,7 @@
                 <!-- Previous Line -->
                 <div>
                     @if($currentLine > 1 || $pageNumber > 1)
-                        <a href="{{ route('user.jadwal-belajar.learn', [
+                        <a id="link-line-prev" href="{{ route('user.jadwal-belajar.learn', [
                             'jadwal' => $jadwal->id, 
                             'page' => $currentLine > 1 ? $pageNumber : $pageNumber - 1, 
                             'line' => $currentLine > 1 ? $currentLine - 1 : 'last', 
@@ -155,7 +155,7 @@
                 <!-- Next Line -->
                 <div>
                     @if($hasNextLine || $pageNumber < $totalPages)
-                        <a href="{{ route('user.jadwal-belajar.learn', [
+                        <a id="link-line-next" href="{{ route('user.jadwal-belajar.learn', [
                             'jadwal' => $jadwal->id, 
                             'page' => $hasNextLine ? $pageNumber : $pageNumber + 1, 
                             'line' => $hasNextLine ? $currentLine + 1 : 1, 
@@ -180,7 +180,7 @@
                 <!-- Previous Page -->
                 <div>
                     @if($pageNumber > 1)
-                        <a href="{{ route('user.jadwal-belajar.learn', ['jadwal' => $jadwal->id, 'page' => $pageNumber - 1, 'line' => 1, 'chunk' => 1]) }}"
+                        <a id="link-page-prev" href="{{ route('user.jadwal-belajar.learn', ['jadwal' => $jadwal->id, 'page' => $pageNumber - 1, 'line' => 1, 'chunk' => 1]) }}"
                            class="w-full flex items-center justify-center px-3 py-3 bg-white border-2 border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors focus:ring-2 focus:ring-gray-400 focus:ring-offset-2"
                            aria-label="Halaman sebelumnya">
                             <i class="fas fa-chevron-double-left mr-2" aria-hidden="true"></i>
@@ -197,7 +197,7 @@
                 <!-- Next Page / Complete -->
                 <div>
                     @if($pageNumber < $totalPages)
-                        <a href="{{ route('user.jadwal-belajar.learn', ['jadwal' => $jadwal->id, 'page' => $pageNumber + 1, 'line' => 1, 'chunk' => 1]) }}" 
+                        <a id="link-page-next" href="{{ route('user.jadwal-belajar.learn', ['jadwal' => $jadwal->id, 'page' => $pageNumber + 1, 'line' => 1, 'chunk' => 1]) }}" 
                            class="w-full flex items-center justify-center px-3 py-3 bg-white border-2 border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors focus:ring-2 focus:ring-gray-400 focus:ring-offset-2"
                            aria-label="Halaman selanjutnya">
                             <span class="whitespace-nowrap">Halaman Berikutnya</span>
@@ -245,9 +245,13 @@
     <div class="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
         <h3 class="text-sm font-semibold text-blue-900 mb-2">Pintasan Keyboard:</h3>
         <div class="grid grid-cols-1 md:grid-cols-3 gap-2 text-sm text-blue-800">
-            <div><kbd class="px-2 py-1 bg-white rounded border border-blue-300">←</kbd> Karakter sebelumnya</div>
-            <div><kbd class="px-2 py-1 bg-white rounded border border-blue-300">→</kbd> Karakter selanjutnya</div>
-            <div><kbd class="px-2 py-1 bg-white rounded border border-blue-300">Space</kbd> Baca karakter</div>
+            <div><kbd class="px-2 py-1 bg-white rounded border border-blue-300">←</kbd> Chunk sebelumnya</div>
+            <div><kbd class="px-2 py-1 bg-white rounded border border-blue-300">→</kbd> Chunk berikutnya</div>
+            <div><kbd class="px-2 py-1 bg-white rounded border border-blue-300">↑</kbd> Baris sebelumnya</div>
+            <div><kbd class="px-2 py-1 bg-white rounded border border-blue-300">↓</kbd> Baris berikutnya</div>
+            <div><kbd class="px-2 py-1 bg-white rounded border border-blue-300">Page Up</kbd> Halaman berikutnya</div>
+            <div><kbd class="px-2 py-1 bg-white rounded border border-blue-300">Page Down</kbd> Halaman sebelumnya</div>
+            <div><kbd class="px-2 py-1 bg-white rounded border border-blue-300">Space</kbd> Baca karakter saat ini</div>
         </div>
     </div>
 
@@ -597,6 +601,22 @@ function speakCharacter() {
     document.getElementById('announcements').textContent = 'Membaca: ' + text;
 }
 
+function triggerNavigation(linkId) {
+    const element = document.getElementById(linkId);
+
+    if (!element || element.tagName.toLowerCase() !== 'a') {
+        return false;
+    }
+
+    const href = element.getAttribute('href');
+    if (!href || element.classList.contains('disabled')) {
+        return false;
+    }
+
+    element.click();
+    return true;
+}
+
 // Event listeners
 document.addEventListener('DOMContentLoaded', function() {
     // Button controls
@@ -673,22 +693,35 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Keyboard shortcuts
     document.addEventListener('keydown', function(e) {
-        const btnPrev = document.getElementById('btn-prev');
-        const btnNext = document.getElementById('btn-next');
-        
+        let handled = false;
+
         switch(e.key) {
             case 'ArrowLeft':
-                e.preventDefault();
-                if (btnPrev) btnPrev.click();
+                handled = triggerNavigation('link-chunk-prev');
                 break;
             case 'ArrowRight':
-                e.preventDefault();
-                if (btnNext) btnNext.click();
+                handled = triggerNavigation('link-chunk-next');
+                break;
+            case 'ArrowUp':
+                handled = triggerNavigation('link-line-prev');
+                break;
+            case 'ArrowDown':
+                handled = triggerNavigation('link-line-next');
+                break;
+            case 'PageUp':
+                handled = triggerNavigation('link-page-next');
+                break;
+            case 'PageDown':
+                handled = triggerNavigation('link-page-prev');
                 break;
             case ' ':
-                e.preventDefault();
                 speakCharacter();
+                handled = true;
                 break;
+        }
+
+        if (handled) {
+            e.preventDefault();
         }
     });
     
