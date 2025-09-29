@@ -157,10 +157,11 @@ class PdfConversionService
         if (isset($pageData['lines']) && is_array($pageData['lines'])) {
             foreach ($pageData['lines'] as $index => $line) {
                 if (isset($line['text']) && !empty(trim($line['text']))) {
-                    $brailleText = $this->placeholderBrailleConversion($line['text']);
+                    $brailleResult = $this->placeholderBrailleConversion($line['text'], true);
                     $braillePage['lines'][] = [
                         'line' => $index + 1,
-                        'text' => $brailleText
+                        'text' => $brailleResult['text'],
+                        'decimal' => $brailleResult['decimal']
                     ];
                 }
             }
@@ -173,7 +174,7 @@ class PdfConversionService
      * Placeholder Braille conversion (NOT real Braille)
      * Replace this with actual Braille conversion logic
      */
-    private function placeholderBrailleConversion($text)
+    private function placeholderBrailleConversion($text, bool $withDecimal = false)
     {
         // This is just a placeholder - NOT actual Braille conversion
         // You need to implement real Braille conversion here
@@ -182,7 +183,7 @@ class PdfConversionService
         $text = (string) $text;
         
         if (empty($text)) {
-            return '';
+            return $withDecimal ? ['text' => '', 'decimal' => ''] : '';
         }
         
         $brailleMap = [
@@ -196,13 +197,69 @@ class PdfConversionService
             '6' => '⠖', '7' => '⠶', '8' => '⠦', '9' => '⠔', '0' => '⠴'
         ];
 
-        $result = '';
-        for ($i = 0; $i < strlen($text); $i++) {
-            $char = strtolower($text[$i]);
-            $result .= $brailleMap[$char] ?? '⠿'; // Unknown character symbol
+        $brailleChars = [];
+        $decimalParts = [];
+
+        $length = mb_strlen($text, 'UTF-8');
+        for ($i = 0; $i < $length; $i++) {
+            $char = mb_substr($text, $i, 1, 'UTF-8');
+            $char = mb_strtolower($char, 'UTF-8');
+
+            $brailleChar = $brailleMap[$char] ?? '⠿'; // Unknown character symbol
+            $brailleChars[] = $brailleChar;
+
+            if ($withDecimal) {
+                $decimalParts[] = $this->convertBrailleCharToDecimalString($brailleChar);
+            }
         }
 
-        return $result;
+        $brailleString = implode('', $brailleChars);
+
+        if (!$withDecimal) {
+            return $brailleString;
+        }
+
+        return [
+            'text' => $brailleString,
+            'decimal' => implode('', $decimalParts)
+        ];
+    }
+
+    private function convertBrailleCharToDecimalString(string $brailleChar): string
+    {
+        $codePoint = $this->getCodePoint($brailleChar);
+
+        if ($codePoint === null || $codePoint < 0x2800 || $codePoint > 0x28FF) {
+            return '63';
+        }
+
+        $mask = $codePoint - 0x2800;
+        $mask &= 0b00111111;
+
+        $binary = '';
+        for ($i = 0; $i < 6; $i++) {
+            $binary .= ($mask & (1 << $i)) ? '1' : '0';
+        }
+
+        $decimal = bindec($binary);
+
+        return str_pad((string) $decimal, 2, '0', STR_PAD_LEFT);
+    }
+
+    private function getCodePoint(string $char): ?int
+    {
+        if ($char === '') {
+            return null;
+        }
+
+        $encoded = mb_convert_encoding($char, 'UCS-4BE', 'UTF-8');
+        if ($encoded === false) {
+            return null;
+        }
+
+        $codePoint = unpack('N', $encoded);
+
+        return $codePoint[1] ?? null;
     }
 
     /**
