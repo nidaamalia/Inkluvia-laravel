@@ -5,20 +5,22 @@ namespace App\Http\Controllers;
 use App\Models\Jadwal;
 use App\Models\Device;
 use App\Models\Material;
-use App\Models\MaterialPage;
 use App\Models\BraillePattern;
 use App\Models\UserSavedMaterial;
 use App\Services\MqttService;
+use App\Services\MaterialContentService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
 class JadwalController extends Controller
 {
     protected $mqttService;
+    protected $materialContentService;
 
-    public function __construct(MqttService $mqttService)
+    public function __construct(MqttService $mqttService, MaterialContentService $materialContentService)
     {
         $this->mqttService = $mqttService;
+        $this->materialContentService = $materialContentService;
     }
 
     public function index(Request $request)
@@ -202,15 +204,8 @@ class JadwalController extends Controller
         ]);
 
         $devices = Device::whereIn('id', $validated['devices'])->get();
-
-        // Determine character capacity based on selected devices
-        $characterCapacity = 5;
-        if ($devices->isNotEmpty()) {
-            $minCapacity = $devices->min('character_capacity');
-            if ($minCapacity && $minCapacity > 0) {
-                $characterCapacity = $minCapacity;
-            }
-        }
+        $deviceIds = $devices->pluck('id')->toArray();
+        $characterCapacity = $this->resolveCharacterCapacity($deviceIds);
 
         // Prepare initial chunk data
         $currentChunkText = '';
@@ -225,29 +220,33 @@ class JadwalController extends Controller
             ->first();
 
         if ($material) {
-            $materialPage = MaterialPage::where('material_id', $material->id)
-                ->orderBy('page_number')
-                ->first();
+            $originalPages = $this->materialContentService->getOriginalPages($material);
 
-            if ($materialPage && $materialPage->lines && !empty($materialPage->lines)) {
-                $pageNumber = $materialPage->page_number;
-                $firstLine = $materialPage->lines[0] ?? '';
+            if (!empty($originalPages)) {
+                $pageNumber = (int) array_key_first($originalPages);
+                $originalLines = $originalPages[$pageNumber] ?? [];
+                $firstLine = $originalLines[0] ?? '';
 
                 if ($firstLine !== '') {
-                    $safeCapacity = max(1, (int)$characterCapacity);
-                    $lineChunks = str_split($firstLine, $safeCapacity);
+                    $lineChunks = $this->chunkText($firstLine, $characterCapacity);
                     $currentChunkText = $lineChunks[0] ?? '';
 
                     if ($currentChunkText !== '') {
-                        foreach (str_split($currentChunkText) as $char) {
-                            if ($char === ' ') {
-                                $currentChunkDecimalValues[] = '00';
-                                continue;
-                            }
+                        $currentChunkDecimalValues = $this->convertTextToDecimalValues($currentChunkText);
 
-                            $pattern = BraillePattern::getByCharacter($char);
-                            $decimalValue = $pattern ? $pattern->dots_decimal : 0;
-                            $currentChunkDecimalValues[] = str_pad((string)$decimalValue, 2, '0', STR_PAD_LEFT);
+                        $brailleLines = $this->materialContentService->getBraillePageLines($material, $pageNumber);
+                        $brailleLine = $brailleLines[0] ?? null;
+
+                        if ($brailleLine && !empty($brailleLine['decimal_values'])) {
+                            $chunkLength = strlen($currentChunkText);
+                            $brailleDecimals = array_slice($brailleLine['decimal_values'], 0, $chunkLength);
+
+                            if (!empty($brailleDecimals)) {
+                                $currentChunkDecimalValues = array_map(
+                                    fn($value) => str_pad((string) $value, 2, '0', STR_PAD_LEFT),
+                                    $brailleDecimals
+                                );
+                            }
                         }
 
                         $currentChunkDecimal = implode(' ', $currentChunkDecimalValues);
@@ -313,142 +312,46 @@ class JadwalController extends Controller
                 ->with('error', 'Materi tidak ditemukan atau tidak dapat diakses.');
         }
 
-        // Get page number from request (default to 1)
-        $pageNumber = max(1, (int)$request->get('page', 1));
-        
-        // Get the current material page and total pages
-        $materialPage = MaterialPage::where('material_id', $material->id)
-            ->where('page_number', $pageNumber)
-            ->first();
-
-        $totalPages = MaterialPage::where('material_id', $material->id)
-            ->max('page_number') ?? 1;
-
-        // Initialize variables
-        $pageContent = '';
-        $originalLines = [];
-        $currentLineIndex = 0; // Initialize with default value
-        
-        // Get content from material page or use empty string if not found
-        if ($materialPage && $materialPage->lines && !empty($materialPage->lines)) {
-            $originalLines = $materialPage->lines;
-            $pageContent = implode("\n", $materialPage->lines);
-            
-            // Handle line parameter with bounds checking
-            $lineParam = $request->get('line', 1);
-            if ($lineParam === 'last') {
-                $currentLineIndex = count($originalLines) - 1;
-            } else {
-                $currentLineIndex = max(0, min((int)$lineParam - 1, count($originalLines) - 1));
-            }
-        }
-        
-        // Get selected device IDs from the schedule
-        $deviceIds = $jadwal->devices->pluck('id')->toArray();
-        
-        // Get the minimum character capacity from devices (default to 5 for testing)
-        $characterCapacity = 5; // Default for testing
-        if (!empty($deviceIds)) {
-            $minCapacity = \App\Models\Device::whereIn('id', $deviceIds)
-                ->min('character_capacity');
-            $characterCapacity = $minCapacity ?: 5;
-        }
-        
-        // Get the current line text with bounds checking
-        $currentLineText = isset($originalLines[$currentLineIndex]) ? $originalLines[$currentLineIndex] : '';
-        
-        // Split the current line into chunks of characterCapacity
-        $lineChunks = $currentLineText ? str_split($currentLineText, $characterCapacity) : [];
-        
-        // Handle 'last' chunk parameter with bounds checking
+        $pageParam = (int) $request->get('page', 1);
+        $lineParam = $request->get('line', 1);
         $chunkParam = $request->get('chunk', 1);
-        if ($chunkParam === 'last') {
-            $currentChunk = !empty($lineChunks) ? count($lineChunks) - 1 : 0;
-        } else {
-            $currentChunk = max(0, min((int)$chunkParam - 1, !empty($lineChunks) ? count($lineChunks) - 1 : 0));
-        }
-        
-        // Ensure currentChunk is within bounds
-        $currentChunk = min($currentChunk, count($lineChunks) - 1);
-        $currentChunk = max(0, $currentChunk);
-        
-        $currentChunkText = $lineChunks[$currentChunk] ?? '';
-        $currentChunkDecimalValues = [];
 
-        if ($currentChunkText !== '') {
-            $chunkCharacters = str_split($currentChunkText);
+        $deviceIds = $jadwal->devices->pluck('id')->toArray();
+        $characterCapacity = $this->resolveCharacterCapacity($deviceIds);
 
-            foreach ($chunkCharacters as $char) {
-                if ($char === ' ') {
-                    $currentChunkDecimalValues[] = '00';
-                    continue;
-                }
+        $state = $this->composeMaterialState(
+            $material,
+            $pageParam,
+            $lineParam,
+            $chunkParam,
+            $characterCapacity
+        );
 
-                $pattern = BraillePattern::getByCharacter($char);
-                $decimalValue = $pattern ? $pattern->dots_decimal : 0;
-                $currentChunkDecimalValues[] = str_pad((string)$decimalValue, 2, '0', STR_PAD_LEFT);
-            }
-        }
-
-        $currentChunkDecimal = implode(' ', $currentChunkDecimalValues);
-        
-        // Prepare pagination data
-        $totalChunks = count($lineChunks);
-        $hasNextChunk = $currentChunk < $totalChunks - 1;
-        $hasNextLine = $currentLineIndex < count($originalLines) - 1;
-        
-        $paginated = [
-            'current_page' => $pageNumber,
-            'total_pages' => $totalPages,
-            'current_line' => $currentLineIndex + 1,
-            'total_lines' => count($originalLines),
-            'current_chunk' => $currentChunk + 1,
-            'total_chunks' => $totalChunks,
-            'has_next_chunk' => $hasNextChunk,
-            'has_next_line' => $hasNextLine,
-            'has_previous' => $currentChunk > 0 || $currentLineIndex > 0
-        ];
-        $braillePatterns = [];
-        $brailleBinaryPatterns = [];
-        $brailleDecimalPatterns = [];
-
-        if (!empty($currentLineText)) {
-            $characters = str_split($currentLineText);
-            // Process each character for braille patterns
-            foreach ($characters as $char) {
-                $pattern = BraillePattern::getByCharacter($char);
-                $braillePatterns[$char] = $pattern ? $pattern->braille_unicode : '⠀';
-                $brailleBinaryPatterns[$char] = $pattern ? $pattern->dots_binary : '000000';
-                $brailleDecimalPatterns[$char] = $pattern ? $pattern->dots_decimal : 0;
-            }
-        }
-
-        // Prepare view data
         $viewData = [
             'jadwal' => $jadwal,
             'material' => $material,
-            'pageNumber' => $pageNumber,
-            'currentPage' => $paginated['current_page'],
-            'totalPages' => $paginated['total_pages'],
-            'currentLine' => $paginated['current_line'],
-            'currentLineIndex' => $currentLineIndex,
-            'currentChunk' => $paginated['current_chunk'],
-            'totalLines' => $paginated['total_lines'],
-            'totalChunks' => $paginated['total_chunks'],
-            'currentLineText' => $currentLineText,
-            'currentChunkText' => $currentChunkText,
-            'currentChunkDecimal' => $currentChunkDecimal,
-            'currentChunkDecimalValues' => $currentChunkDecimalValues,
-            'characterCapacity' => $characterCapacity,
-            'braillePatterns' => $braillePatterns,
-            'brailleBinaryPatterns' => $brailleBinaryPatterns,
-            'brailleDecimalPatterns' => $brailleDecimalPatterns,
-            'hasNextChunk' => $paginated['has_next_chunk'],
-            'hasNextLine' => $paginated['has_next_line'],
-            'hasPrevious' => $paginated['has_previous'],
+            'pageNumber' => $state['pageNumber'],
+            'currentPage' => $state['pageNumber'],
+            'totalPages' => $state['totalPages'],
+            'currentLine' => $state['totalLines'] > 0 ? $state['currentLineIndex'] + 1 : 0,
+            'currentLineIndex' => $state['currentLineIndex'],
+            'currentChunk' => $state['totalChunks'] > 0 ? $state['currentChunkIndex'] + 1 : 0,
+            'totalLines' => $state['totalLines'],
+            'totalChunks' => $state['totalChunks'],
+            'currentLineText' => $state['currentLineText'],
+            'currentChunkText' => $state['currentChunkText'],
+            'currentChunkDecimal' => $state['currentChunkDecimal'],
+            'currentChunkDecimalValues' => $state['currentChunkDecimalValues'],
+            'characterCapacity' => $state['characterCapacity'],
+            'braillePatterns' => $state['braillePatterns'],
+            'brailleBinaryPatterns' => $state['brailleBinaryPatterns'],
+            'brailleDecimalPatterns' => $state['brailleDecimalPatterns'],
+            'hasNextChunk' => $state['hasNextChunk'],
+            'hasNextLine' => $state['hasNextLine'],
+            'hasPrevious' => $state['hasPrevious'],
             'deviceCount' => count($deviceIds),
-            'lines' => $originalLines,
-            'originalLines' => $originalLines
+            'lines' => $state['originalLines'],
+            'originalLines' => $state['originalLines']
         ];
 
         return view('user.jadwal-belajar.learn', $viewData);
@@ -456,7 +359,6 @@ class JadwalController extends Controller
 
     /**
      * Method helper untuk mendapatkan materi yang dapat diakses user
-{{ ... }}
      */
     public function getAccessibleMaterials()
     {
@@ -503,16 +405,15 @@ class JadwalController extends Controller
      */
     public function getMaterialPage(Jadwal $jadwal, Request $request)
     {
-        // Check authorization
         if ($jadwal->user_id !== Auth::id()) {
             return response()->json(['error' => 'Unauthorized'], 403);
         }
 
-        $pageNumber = $request->get('page', 1);
-        $lineIndex = $request->get('line', 1) - 1; // Convert to 0-based index
+        $pageParam = (int) $request->get('page', 1);
+        $lineParam = $request->get('line', 1);
+        $chunkParam = $request->get('chunk', 1);
 
-        // Cari material berdasarkan judul dari jadwal
-        $material = Material::where('judul', $jadwal->materi)
+        $material = $jadwal->material ?? Material::where('judul', $jadwal->materi)
             ->published()
             ->accessibleBy(Auth::user())
             ->first();
@@ -521,66 +422,231 @@ class JadwalController extends Controller
             return response()->json(['error' => 'Materi tidak ditemukan'], 404);
         }
 
-        // Get material page data
-        $materialPage = MaterialPage::where('material_id', $material->id)
-            ->where('page_number', $pageNumber)
-            ->first();
+        $deviceIds = $jadwal->devices->pluck('id')->toArray();
+        $characterCapacity = $this->resolveCharacterCapacity($deviceIds);
 
-        if (!$materialPage) {
-            return response()->json(['error' => 'Halaman tidak ditemukan'], 404);
+        $state = $this->composeMaterialState(
+            $material,
+            $pageParam,
+            $lineParam,
+            $chunkParam,
+            $characterCapacity
+        );
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'current_page' => $state['pageNumber'],
+                'currentPage' => $state['pageNumber'],
+                'current_line_index' => $state['currentLineIndex'],
+                'currentLineIndex' => $state['currentLineIndex'],
+                'currentLine' => $state['totalLines'] > 0 ? $state['currentLineIndex'] + 1 : 0,
+                'total_pages' => $state['totalPages'],
+                'totalPages' => $state['totalPages'],
+                'total_lines' => $state['totalLines'],
+                'totalLines' => $state['totalLines'],
+                'lines' => $state['originalLines'],
+                'current_line_text' => $state['currentLineText'],
+                'currentLineText' => $state['currentLineText'],
+                'current_chunk_text' => $state['currentChunkText'],
+                'currentChunkText' => $state['currentChunkText'],
+                'current_chunk_decimal_values' => $state['currentChunkDecimalValues'],
+                'currentChunkDecimalValues' => $state['currentChunkDecimalValues'],
+                'current_chunk_decimal' => $state['currentChunkDecimal'],
+                'currentChunkDecimal' => $state['currentChunkDecimal'],
+                'current_chunk_index' => $state['currentChunkIndex'],
+                'currentChunkIndex' => $state['currentChunkIndex'],
+                'total_chunks' => $state['totalChunks'],
+                'totalChunks' => $state['totalChunks'],
+                'braillePatterns' => $state['braillePatterns'],
+                'brailleBinaryPatterns' => $state['brailleBinaryPatterns'],
+                'brailleDecimalPatterns' => $state['brailleDecimalPatterns'],
+                'characterCapacity' => $state['characterCapacity'],
+                'hasNextChunk' => $state['hasNextChunk'],
+                'hasNextLine' => $state['hasNextLine'],
+                'hasPrevious' => $state['hasPrevious'],
+                'deviceCount' => count($deviceIds)
+            ]
+        ]);
+    }
+
+    protected function resolveCharacterCapacity(array $deviceIds): int
+    {
+        if (empty($deviceIds)) {
+            return 5;
         }
 
-        $lines = $materialPage->lines ?? [];
-        $totalLines = count($lines);
-        $currentLineIndex = ($lineIndex >= 0 && $lineIndex < $totalLines) ? $lineIndex : 0;
-        $currentLineText = $lines[$currentLineIndex] ?? '';
+        $minCapacity = Device::whereIn('id', $deviceIds)->min('character_capacity');
 
-        // Get total pages
-        $totalPages = MaterialPage::where('material_id', $material->id)
-            ->max('page_number') ?? 1;
+        return $minCapacity && $minCapacity > 0 ? (int) $minCapacity : 5;
+    }
+
+    protected function composeMaterialState(
+        Material $material,
+        int $pageParam,
+        $lineParam,
+        $chunkParam,
+        int $characterCapacity
+    ): array {
+        $pageNumber = max(1, $pageParam);
+        $originalPages = $this->materialContentService->getOriginalPages($material);
+        $braillePages = $this->materialContentService->getBraillePages($material);
+
+        if (empty($originalPages)) {
+            return $this->emptyMaterialState($pageNumber, $characterCapacity);
+        }
+
+        if (!array_key_exists($pageNumber, $originalPages)) {
+            $pageNumber = (int) array_key_first($originalPages);
+        }
+
+        $originalLines = $originalPages[$pageNumber] ?? [];
+        $totalPages = count($originalPages);
+        $totalLines = count($originalLines);
+
+        $currentLineIndex = 0;
+        if ($lineParam === 'last' && $totalLines > 0) {
+            $currentLineIndex = $totalLines - 1;
+        } elseif (is_numeric($lineParam)) {
+            $requestedIndex = max(0, ((int) $lineParam) - 1);
+            $currentLineIndex = min($requestedIndex, max($totalLines - 1, 0));
+        }
+
+        $currentLineText = $originalLines[$currentLineIndex] ?? '';
+        $lineChunks = $this->chunkText($currentLineText, $characterCapacity);
+        $totalChunks = count($lineChunks);
+
+        $currentChunkIndex = 0;
+        if ($chunkParam === 'last' && $totalChunks > 0) {
+            $currentChunkIndex = $totalChunks - 1;
+        } elseif (is_numeric($chunkParam)) {
+            $requestedChunk = max(0, ((int) $chunkParam) - 1);
+            $currentChunkIndex = min($requestedChunk, max($totalChunks - 1, 0));
+        }
+
+        $currentChunkText = $lineChunks[$currentChunkIndex] ?? '';
+        $currentChunkDecimalValues = $this->convertTextToDecimalValues($currentChunkText);
+        $currentChunkDecimal = implode(' ', $currentChunkDecimalValues);
+
+        if (!empty($braillePages[$pageNumber] ?? [])) {
+            $brailleLine = $braillePages[$pageNumber][$currentLineIndex] ?? null;
+            if ($brailleLine && !empty($brailleLine['decimal_values'])) {
+                $chunkLength = strlen($currentChunkText);
+                $offset = $currentChunkIndex * $characterCapacity;
+                $brailleSlice = array_slice($brailleLine['decimal_values'], $offset, $chunkLength);
+                $brailleSlice = array_map(fn($value) => str_pad((string) $value, 2, '0', STR_PAD_LEFT), $brailleSlice);
+
+                if (!empty($brailleSlice)) {
+                    $currentChunkDecimalValues = $brailleSlice;
+                    $currentChunkDecimal = implode(' ', $brailleSlice);
+                }
+            }
+        }
 
         $braillePatterns = [];
         $brailleBinaryPatterns = [];
         $brailleDecimalPatterns = [];
 
-        if (!empty($lines)) {
-            $characters = str_split(implode('', $lines));
-            $uniqueCharacters = array_unique($characters);
-
-            foreach ($uniqueCharacters as $char) {
-                if ($char === ' ') {
-                    $braillePatterns[$char] = '⠀';
-                    $brailleBinaryPatterns[$char] = '000000';
-                    $brailleDecimalPatterns[$char] = 0;
-                    continue;
+        if ($currentLineText !== '') {
+            foreach (str_split($currentLineText) as $char) {
+                if (!array_key_exists($char, $braillePatterns)) {
+                    if ($char === ' ') {
+                        $braillePatterns[$char] = '⠀';
+                        $brailleBinaryPatterns[$char] = '000000';
+                        $brailleDecimalPatterns[$char] = 0;
+                    } else {
+                        $pattern = BraillePattern::getByCharacter($char);
+                        $braillePatterns[$char] = $pattern ? $pattern->braille_unicode : '⠀';
+                        $brailleBinaryPatterns[$char] = $pattern ? $pattern->dots_binary : '000000';
+                        $brailleDecimalPatterns[$char] = $pattern ? $pattern->dots_decimal : 0;
+                    }
                 }
-
-                $pattern = BraillePattern::getByCharacter($char);
-                $braillePatterns[$char] = $pattern ? $pattern->braille_unicode : '⠀';
-                $brailleBinaryPatterns[$char] = $pattern ? $pattern->dots_binary : '000000';
-                $brailleDecimalPatterns[$char] = $pattern ? $pattern->dots_decimal : 0;
             }
         }
 
-        return response()->json([
-            'success' => true,
-            'data' => [
-                'current_page' => $pageNumber,
-                'current_line_index' => $currentLineIndex,
-                'total_pages' => $totalPages,
-                'lines' => $paginated['lines'],
-                'currentPage' => $paginated['current_page'],
-                'totalPages' => $paginated['total_pages'],
-                'currentLine' => $lineIndex + 1,
-                'currentLineText' => $currentLineText,
-                'braillePatterns' => $braillePatterns,
-                'brailleBinaryPatterns' => $brailleBinaryPatterns,
-                'brailleDecimalPatterns' => $brailleDecimalPatterns,
-                'hasNext' => $paginated['has_next'],
-                'hasPrevious' => $paginated['has_previous'],
-                'deviceCount' => count($deviceIds)
-            ]
-        ]);
+        $hasNextChunk = $currentChunkIndex < max($totalChunks - 1, 0);
+        $hasNextLine = $currentLineIndex < max($totalLines - 1, 0);
+        $hasPrevious = $currentChunkIndex > 0 || $currentLineIndex > 0;
+
+        return [
+            'pageNumber' => $pageNumber,
+            'totalPages' => max(1, $totalPages),
+            'originalLines' => $originalLines,
+            'totalLines' => $totalLines,
+            'currentLineIndex' => $currentLineIndex,
+            'currentLineText' => $currentLineText,
+            'characterCapacity' => $characterCapacity,
+            'lineChunks' => $lineChunks,
+            'totalChunks' => $totalChunks,
+            'currentChunkIndex' => $currentChunkIndex,
+            'currentChunkText' => $currentChunkText,
+            'currentChunkDecimalValues' => $currentChunkDecimalValues,
+            'currentChunkDecimal' => $currentChunkDecimal,
+            'braillePatterns' => $braillePatterns,
+            'brailleBinaryPatterns' => $brailleBinaryPatterns,
+            'brailleDecimalPatterns' => $brailleDecimalPatterns,
+            'hasNextChunk' => $hasNextChunk,
+            'hasNextLine' => $hasNextLine,
+            'hasPrevious' => $hasPrevious
+        ];
+    }
+
+    protected function emptyMaterialState(int $pageNumber, int $characterCapacity): array
+    {
+        return [
+            'pageNumber' => $pageNumber,
+            'totalPages' => 1,
+            'originalLines' => [],
+            'totalLines' => 0,
+            'currentLineIndex' => 0,
+            'currentLineText' => '',
+            'characterCapacity' => $characterCapacity,
+            'lineChunks' => [],
+            'totalChunks' => 0,
+            'currentChunkIndex' => 0,
+            'currentChunkText' => '',
+            'currentChunkDecimalValues' => [],
+            'currentChunkDecimal' => '',
+            'braillePatterns' => [],
+            'brailleBinaryPatterns' => [],
+            'brailleDecimalPatterns' => [],
+            'hasNextChunk' => false,
+            'hasNextLine' => false,
+            'hasPrevious' => false
+        ];
+    }
+
+    protected function chunkText(string $text, int $characterCapacity): array
+    {
+        $safeCapacity = max(1, $characterCapacity);
+
+        if ($text === '') {
+            return [];
+        }
+
+        return str_split($text, $safeCapacity);
+    }
+
+    protected function convertTextToDecimalValues(string $text): array
+    {
+        if ($text === '') {
+            return [];
+        }
+
+        $values = [];
+
+        foreach (str_split($text) as $char) {
+            if ($char === ' ') {
+                $values[] = '00';
+                continue;
+            }
+
+            $pattern = BraillePattern::getByCharacter($char);
+            $decimalValue = $pattern ? $pattern->dots_decimal : 0;
+            $values[] = str_pad((string) $decimalValue, 2, '0', STR_PAD_LEFT);
+        }
+
+        return $values;
     }
 
     /**

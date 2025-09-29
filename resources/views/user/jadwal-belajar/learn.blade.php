@@ -56,7 +56,7 @@
                         </span>
                     @endforeach
                 </div>
-                @if(!empty($currentChunkDecimalValues))
+                <!-- @if(!empty($currentChunkDecimalValues))
                 <div class="text-sm text-gray-500 mt-2">
                     @foreach($currentChunkDecimalValues as $decimal)
                         <span style="display: inline-block; width: 24px; text-align: center;">
@@ -64,7 +64,7 @@
                         </span>
                     @endforeach
                 </div>
-                @endif
+                @endif -->
                 <div class="text-xs text-gray-400 mt-2">
                     Chunk {{ $currentChunk }} dari {{ $totalChunks }}
                 </div>
