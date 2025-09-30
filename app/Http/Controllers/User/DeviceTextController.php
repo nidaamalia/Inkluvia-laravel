@@ -20,13 +20,15 @@ class DeviceTextController extends Controller
 
     public function sendText(Request $request)
     {
-        $request->validate([
+        $validated = $request->validate([
             'text' => 'nullable|string|max:255',
-            'chunk_text' => 'nullable|string|max:255',
+            'chunk_text' => 'nullable|string|max:20',
             'decimal_values' => 'sometimes|array',
             'decimal_values.*' => 'string',
             'device_ids' => 'sometimes|array',
-            'device_ids.*' => 'exists:devices,id'
+            'device_ids.*' => 'exists:devices,id',
+            'device_serials' => 'sometimes|array',
+            'device_serials.*' => 'string'
         ]);
 
         // Debug: Log the incoming request
@@ -34,42 +36,20 @@ class DeviceTextController extends Controller
             'text' => $request->text,
             'chunk_text' => $request->chunk_text,
             'decimal_values' => $request->decimal_values ?? [],
-            'device_ids' => $request->device_ids ?? 'not provided'
+            'device_ids' => $request->device_ids ?? 'not provided',
+            'device_serials' => $request->device_serials ?? 'not provided'
         ]);
 
         $chunkText = $request->input('chunk_text', $request->input('text', ''));
-        $providedDecimals = $request->input('decimal_values', []);
+        $decimalValues = $request->input('decimal_values', []);
 
-        $decimalValues = [];
-
-        if (!empty($providedDecimals)) {
-            foreach ($providedDecimals as $value) {
-                if ($value === null || $value === '') {
-                    continue;
-                }
-
-                if ($value === '00') {
-                    $decimalValues[] = '00';
-                    continue;
-                }
-
-                $decimalValues[] = str_pad((string)$value, 2, '0', STR_PAD_LEFT);
-            }
+        if (!is_array($decimalValues)) {
+            $decimalValues = [];
         }
 
-        if (empty($decimalValues) && $chunkText !== '') {
-            $characters = str_split($chunkText);
-            foreach ($characters as $char) {
-                if ($char === ' ') {
-                    $decimalValues[] = '00';
-                    continue;
-                }
-
-                $pattern = BraillePattern::getByCharacter($char);
-                $decimal = $pattern ? $pattern->dots_decimal : 0;
-                $decimalValues[] = str_pad((string)$decimal, 2, '0', STR_PAD_LEFT);
-            }
-        }
+        $decimalValues = array_values(array_filter($decimalValues, function ($value) {
+            return $value !== null && $value !== '';
+        }));
 
         if (empty($decimalValues)) {
             return response()->json([
@@ -78,19 +58,28 @@ class DeviceTextController extends Controller
             ], 422);
         }
 
-        $decimalPayload = implode(' ', $decimalValues);
+        $decimalPayload = implode('', $decimalValues);
 
         // Get devices with more detailed logging
-        if ($request->has('device_ids')) {
-            $devices = Device::whereIn('id', $request->device_ids)->get();
-            \Log::info('Using specific devices:', $devices->toArray());
+        if (!empty($validated['device_ids'])) {
+            $devices = Device::whereIn('id', $validated['device_ids'])->get();
+            \Log::info('Using specific devices (by ID):', $devices->toArray());
+        } elseif (!empty($validated['device_serials'])) {
+            $devices = Device::whereIn('serial_number', $validated['device_serials'])->get();
+            \Log::info('Using specific devices (by serial):', $devices->toArray());
         } else {
             $devices = Device::where('status', 'aktif')->get();
             \Log::info('Using all active devices:', $devices->toArray());
         }
 
+        if ($devices->isEmpty()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Tidak ada perangkat yang cocok dengan pilihan Anda.'
+            ], 404);
+        }
+
         $results = [];
-        $topicPrefix = 'edubraille/';
         $logs = [
             'request' => $request->all(),
             'device_count' => $devices->count(),
@@ -98,35 +87,30 @@ class DeviceTextController extends Controller
         ];
         $successCount = 0;
 
-        // Start output buffering to capture any direct echoes
-        ob_start();
-        
         foreach ($devices as $device) {
-            $topic = $topicPrefix . $device->id . '/control';
+            $topic = 'edubraille/' . $device->id . '/control';
             $payload = [
                 'command' => 'display_text',
+                'device_id' => $device->id,
+                'device_serial' => $device->serial_number,
                 'text' => $chunkText,
                 'chunk_text' => $chunkText,
                 'decimal_values' => $decimalValues,
                 'decimal_string' => $decimalPayload,
-                'timestamp' => now()->toISOString(),
-                'device_id' => $device->id
+                'timestamp' => now()->toISOString()
             ];
 
-            // Log the attempt
             $logMessage = sprintf(
-                'MQTT Publish Attempt - Topic: %s, Message: %s, QoS: 0',
+                'MQTT Publish Attempt - Topic: %s, Payload: %s',
                 $topic,
-                $decimalPayload
+                json_encode($payload)
             );
             $logs[] = $logMessage;
             
-            // Publish and get result
-            $success = $this->mqttService->publish($topic, $decimalPayload);
+            $success = $this->mqttService->publish($topic, json_encode($payload));
             
-            // Log the result
             $resultMessage = $success 
-                ? sprintf('MQTT Publish Success - Topic: %s, Message Length: %d', $topic, strlen($decimalPayload))
+                ? sprintf('MQTT Publish Success - Topic: %s, Device ID: %d', $topic, $device->id)
                 : sprintf('MQTT Publish Failed - Topic: %s', $topic);
             $logs[] = $resultMessage;
             

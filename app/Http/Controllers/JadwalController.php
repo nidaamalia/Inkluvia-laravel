@@ -205,6 +205,9 @@ class JadwalController extends Controller
 
         $devices = Device::whereIn('id', $validated['devices'])->get();
         $deviceIds = $devices->pluck('id')->toArray();
+
+        // Persist selected devices for subsequent learning session
+        $jadwal->devices()->sync($deviceIds);
         $characterCapacity = $this->resolveCharacterCapacity($deviceIds);
 
         // Prepare initial chunk data
@@ -312,11 +315,14 @@ class JadwalController extends Controller
                 ->with('error', 'Materi tidak ditemukan atau tidak dapat diakses.');
         }
 
+        $jadwal->load('devices');
+
         $pageParam = (int) $request->get('page', 1);
         $lineParam = $request->get('line', 1);
         $chunkParam = $request->get('chunk', 1);
 
         $deviceIds = $jadwal->devices->pluck('id')->toArray();
+        $deviceSerials = $jadwal->devices->pluck('serial_number')->toArray();
         $characterCapacity = $this->resolveCharacterCapacity($deviceIds);
 
         $state = $this->composeMaterialState(
@@ -351,7 +357,9 @@ class JadwalController extends Controller
             'hasPrevious' => $state['hasPrevious'],
             'deviceCount' => count($deviceIds),
             'lines' => $state['originalLines'],
-            'originalLines' => $state['originalLines']
+            'originalLines' => $state['originalLines'],
+            'selectedDeviceIds' => $deviceIds,
+            'selectedDeviceSerials' => $deviceSerials
         ];
 
         return view('user.jadwal-belajar.learn', $viewData);

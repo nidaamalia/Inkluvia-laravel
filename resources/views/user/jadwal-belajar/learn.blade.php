@@ -326,6 +326,9 @@ const brailleData = {
 
 const navigateUrl = {!! json_encode(route('user.jadwal-belajar.navigate', ['jadwal' => $jadwal->id])) !!};
 const materialPageUrl = {!! json_encode(route('user.jadwal-belajar.material-page', ['jadwal' => $jadwal->id])) !!};
+const deviceSendUrl = {!! json_encode(route('user.device.send-text')) !!};
+const jadwalDeviceIds = {!! json_encode($jadwal->devices->pluck('id')->all()) !!};
+const jadwalDeviceSerials = {!! json_encode($selectedDeviceSerials ?? []) !!};
 
 // MQTT Configuration
 const mqttUrl = '{{ config('mqtt.ws_url') }}';
@@ -820,7 +823,7 @@ async function sendToDevices(chunkText, decimalValues) {
     lastSentSignature = signature;
     
     try {
-        const response = await fetch('{{ route("user.device.send-text") }}', {
+        const response = await fetch(deviceSendUrl, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -830,7 +833,9 @@ async function sendToDevices(chunkText, decimalValues) {
             body: JSON.stringify({
                 text: chunkText,
                 chunk_text: chunkText,
-                decimal_values: decimals
+                decimal_values: decimals,
+                device_ids: Array.isArray(jadwalDeviceIds) ? jadwalDeviceIds : [],
+                device_serials: Array.isArray(jadwalDeviceSerials) ? jadwalDeviceSerials : []
             })
         });
         
