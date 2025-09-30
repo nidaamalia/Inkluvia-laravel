@@ -1,16 +1,16 @@
 @extends('layouts.user')
 
-@section('title', 'Kirim Materi Braille')
+@section('title', $sessionTitle ?? 'Kirim Materi Braille')
 
 @section('content')
 <div class="max-w-4xl mx-auto">
     <!-- Back Button -->
     <div class="mb-6">
-        <a href="{{ route('user.jadwal-belajar') }}" 
+        <a href="{{ $sessionBackRoute ?? route('user.jadwal-belajar') }}" 
            class="inline-flex items-center text-primary hover:text-primary-dark font-medium focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 rounded px-2 py-1"
-           aria-label="Kembali ke daftar jadwal">
+           aria-label="{{ $sessionBackLabel ?? 'Kembali ke daftar jadwal' }}">
             <i class="fas fa-arrow-left mr-2" aria-hidden="true"></i>
-            Kembali ke Jadwal
+            {{ $sessionBackLabel ?? 'Kembali' }}
         </a>
     </div>
 
@@ -18,13 +18,21 @@
     <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 mb-6">
         <div class="flex items-center justify-between">
             <div>
-                <h1 class="text-xl font-bold text-gray-900">{{ $jadwal->judul }}</h1>
-                <p class="text-sm text-gray-600">{{ $jadwal->materi ?? 'Materi Pembelajaran' }}</p>
+                <h1 class="text-xl font-bold text-gray-900">{{ $sessionTitle ?? ($material->judul ?? 'Materi EduBraille') }}</h1>
+                @if(!empty($sessionSubtitle))
+                    <p class="text-sm text-gray-600">{{ $sessionSubtitle }}</p>
+                @elseif(!empty($jadwal))
+                    <p class="text-sm text-gray-600">{{ $jadwal->materi ?? 'Materi Pembelajaran' }}</p>
+                @elseif(!empty($material) && !empty($material->deskripsi))
+                    <p class="text-sm text-gray-600">{{ \Illuminate\Support\Str::limit($material->deskripsi, 120) }}</p>
+                @endif
             </div>
-            <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
-                <i class="fas fa-circle text-xs mr-2 animate-pulse" aria-hidden="true"></i>
-                Sedang Berlangsung
+            @if(!empty($sessionStatusLabel))
+            <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium {{ $sessionStatusClass ?? 'bg-green-100 text-green-800' }}">
+                <i class="fas fa-circle text-xs mr-2 {{ ($sessionStatusClass ?? '') ? '' : 'animate-pulse' }}" aria-hidden="true"></i>
+                {{ $sessionStatusLabel }}
             </span>
+            @endif
         </div>
     </div>
 
@@ -86,12 +94,11 @@
                 <!-- Previous Chunk -->
                 <div>
                     @if($currentChunk > 1 || $currentLine > 1 || $pageNumber > 1)
-                        <a id="link-chunk-prev" href="{{ route('user.jadwal-belajar.learn', [
-                            'jadwal' => $jadwal->id, 
-                            'page' => $currentChunk > 1 ? $pageNumber : ($currentLine > 1 ? $pageNumber : $pageNumber - 1), 
-                            'line' => $currentChunk > 1 ? $currentLine : ($currentLine > 1 ? $currentLine - 1 : 'last'), 
+                        <a id="link-chunk-prev" href="{{ route($learnRouteName ?? 'user.jadwal-belajar.learn', array_merge($learnRouteParams ?? ['jadwal' => $jadwal->id ?? null], [
+                            'page' => $currentChunk > 1 ? $pageNumber : ($currentLine > 1 ? $pageNumber : $pageNumber - 1),
+                            'line' => $currentChunk > 1 ? $currentLine : ($currentLine > 1 ? $currentLine - 1 : 'last'),
                             'chunk' => $currentChunk > 1 ? $currentChunk - 1 : 'last'
-                        ]) }}"
+                        ])) }}"
                            class="w-full flex items-center justify-center px-3 py-3 bg-white border-2 border-primary text-primary font-medium rounded-lg hover:bg-primary hover:text-white transition-colors focus:ring-2 focus:ring-primary focus:ring-offset-2"
                            aria-label="Chunk sebelumnya">
                             <i class="fas fa-chevron-left mr-2" aria-hidden="true"></i>
@@ -108,12 +115,11 @@
                 <!-- Next Chunk -->
                 <div>
                     @if($hasNextChunk || $hasNextLine || $pageNumber < $totalPages)
-                        <a id="link-chunk-next" href="{{ route('user.jadwal-belajar.learn', [
-                            'jadwal' => $jadwal->id, 
-                            'page' => $hasNextChunk ? $pageNumber : ($hasNextLine ? $pageNumber : $pageNumber + 1), 
-                            'line' => $hasNextChunk ? $currentLine : ($hasNextLine ? $currentLine + 1 : 1), 
+                        <a id="link-chunk-next" href="{{ route($learnRouteName ?? 'user.jadwal-belajar.learn', array_merge($learnRouteParams ?? ['jadwal' => $jadwal->id ?? null], [
+                            'page' => $hasNextChunk ? $pageNumber : ($hasNextLine ? $pageNumber : $pageNumber + 1),
+                            'line' => $hasNextChunk ? $currentLine : ($hasNextLine ? $currentLine + 1 : 1),
                             'chunk' => $hasNextChunk ? $currentChunk + 1 : 1
-                        ]) }}" 
+                        ])) }}" 
                            class="w-full flex items-center justify-center px-3 py-3 bg-white border-2 border-primary text-primary font-medium rounded-lg hover:bg-primary hover:text-white transition-colors focus:ring-2 focus:ring-primary focus:ring-offset-2"
                            aria-label="Chunk selanjutnya">
                             <span class="whitespace-nowrap">Chunk Berikutnya</span>
@@ -133,12 +139,11 @@
                 <!-- Previous Line -->
                 <div>
                     @if($currentLine > 1 || $pageNumber > 1)
-                        <a id="link-line-prev" href="{{ route('user.jadwal-belajar.learn', [
-                            'jadwal' => $jadwal->id, 
-                            'page' => $currentLine > 1 ? $pageNumber : $pageNumber - 1, 
-                            'line' => $currentLine > 1 ? $currentLine - 1 : 'last', 
+                        <a id="link-line-prev" href="{{ route($learnRouteName ?? 'user.jadwal-belajar.learn', array_merge($learnRouteParams ?? ['jadwal' => $jadwal->id ?? null], [
+                            'page' => $currentLine > 1 ? $pageNumber : $pageNumber - 1,
+                            'line' => $currentLine > 1 ? $currentLine - 1 : 'last',
                             'chunk' => 'last'
-                        ]) }}"
+                        ])) }}"
                            class="w-full flex items-center justify-center px-3 py-3 bg-blue-50 border-2 border-blue-200 text-blue-700 font-medium rounded-lg hover:bg-blue-100 transition-colors focus:ring-2 focus:ring-blue-400 focus:ring-offset-2"
                            aria-label="Baris sebelumnya">
                             <i class="fas fa-chevron-up mr-2" aria-hidden="true"></i>
@@ -155,12 +160,11 @@
                 <!-- Next Line -->
                 <div>
                     @if($hasNextLine || $pageNumber < $totalPages)
-                        <a id="link-line-next" href="{{ route('user.jadwal-belajar.learn', [
-                            'jadwal' => $jadwal->id, 
-                            'page' => $hasNextLine ? $pageNumber : $pageNumber + 1, 
-                            'line' => $hasNextLine ? $currentLine + 1 : 1, 
+                        <a id="link-line-next" href="{{ route($learnRouteName ?? 'user.jadwal-belajar.learn', array_merge($learnRouteParams ?? ['jadwal' => $jadwal->id ?? null], [
+                            'page' => $hasNextLine ? $pageNumber : $pageNumber + 1,
+                            'line' => $hasNextLine ? $currentLine + 1 : 1,
                             'chunk' => 1
-                        ]) }}" 
+                        ])) }}" 
                            class="w-full flex items-center justify-center px-3 py-3 bg-blue-50 border-2 border-blue-200 text-blue-700 font-medium rounded-lg hover:bg-blue-100 transition-colors focus:ring-2 focus:ring-blue-400 focus:ring-offset-2"
                            aria-label="Baris selanjutnya">
                             <span class="whitespace-nowrap">Baris Berikutnya</span>
@@ -180,7 +184,7 @@
                 <!-- Previous Page -->
                 <div>
                     @if($pageNumber > 1)
-                        <a id="link-page-prev" href="{{ route('user.jadwal-belajar.learn', ['jadwal' => $jadwal->id, 'page' => $pageNumber - 1, 'line' => 1, 'chunk' => 1]) }}"
+                        <a id="link-page-prev" href="{{ route($learnRouteName ?? 'user.jadwal-belajar.learn', array_merge($learnRouteParams ?? ['jadwal' => $jadwal->id ?? null], ['page' => $pageNumber - 1, 'line' => 1, 'chunk' => 1])) }}"
                            class="w-full flex items-center justify-center px-3 py-3 bg-white border-2 border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors focus:ring-2 focus:ring-gray-400 focus:ring-offset-2"
                            aria-label="Halaman sebelumnya">
                             <i class="fas fa-chevron-double-left mr-2" aria-hidden="true"></i>
@@ -197,19 +201,21 @@
                 <!-- Next Page / Complete -->
                 <div>
                     @if($pageNumber < $totalPages)
-                        <a id="link-page-next" href="{{ route('user.jadwal-belajar.learn', ['jadwal' => $jadwal->id, 'page' => $pageNumber + 1, 'line' => 1, 'chunk' => 1]) }}" 
+                        <a id="link-page-next" href="{{ route($learnRouteName ?? 'user.jadwal-belajar.learn', array_merge($learnRouteParams ?? ['jadwal' => $jadwal->id ?? null], ['page' => $pageNumber + 1, 'line' => 1, 'chunk' => 1])) }}" 
                            class="w-full flex items-center justify-center px-3 py-3 bg-white border-2 border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors focus:ring-2 focus:ring-gray-400 focus:ring-offset-2"
                            aria-label="Halaman selanjutnya">
                             <span class="whitespace-nowrap">Halaman Berikutnya</span>
                             <i class="fas fa-chevron-double-right ml-2" aria-hidden="true"></i>
                         </a>
                     @else
-                        <a href="{{ route('user.jadwal-belajar.complete', $jadwal) }}" 
+                        @if(!empty($sessionCompleteRoute))
+                        <a href="{{ $sessionCompleteRoute }}" 
                            class="w-full flex items-center justify-center px-3 py-3 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 transition-colors focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
                            aria-label="Selesai belajar">
                             <span class="whitespace-nowrap">Selesai Belajar</span>
                             <i class="fas fa-check-circle ml-2" aria-hidden="true"></i>
                         </a>
+                        @endif
                     @endif
                 </div>
             </div>
@@ -256,9 +262,13 @@
     </div>
 
     <!-- Tombol Selesai Belajar -->
+    @if(!empty($sessionCompleteRoute))
     <div class="mt-6 text-center">
-        <form id="complete-session-form" action="{{ route('user.jadwal-belajar.complete', $jadwal) }}" method="POST" class="inline-block">
+        <form id="complete-session-form" action="{{ $sessionCompleteRoute }}" method="POST" class="inline-block">
             @csrf
+            @if(isset($sessionCompleteMethod) && strtolower($sessionCompleteMethod) !== 'post')
+                @method($sessionCompleteMethod)
+            @endif
             <button type="submit" 
                     class="px-6 py-3 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 transition-colors focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
                     aria-label="Selesaikan sesi belajar">
@@ -267,6 +277,7 @@
             </button>
         </form>
     </div>
+    @endif
 </div>
 
 <!-- Live Region for Screen Reader -->
@@ -324,11 +335,11 @@ const brailleData = {
     current_chunk_decimal_values: {!! json_encode($currentChunkDecimalValues ?? []) !!}
 };
 
-const navigateUrl = {!! json_encode(route('user.jadwal-belajar.navigate', ['jadwal' => $jadwal->id])) !!};
-const materialPageUrl = {!! json_encode(route('user.jadwal-belajar.material-page', ['jadwal' => $jadwal->id])) !!};
+const navigateUrl = {!! json_encode(isset($navigateRouteName) ? route($navigateRouteName, $navigateRouteParams ?? []) : route('user.jadwal-belajar.navigate', ['jadwal' => $jadwal->id ?? null])) !!};
+const materialPageUrl = {!! json_encode(isset($materialPageRouteName) ? route($materialPageRouteName, $materialPageParams ?? []) : route('user.jadwal-belajar.material-page', ['jadwal' => $jadwal->id ?? null])) !!};
 const deviceSendUrl = {!! json_encode(route('user.device.send-text')) !!};
-const jadwalDeviceIds = {!! json_encode($jadwal->devices->pluck('id')->all()) !!};
-const jadwalDeviceSerials = {!! json_encode($selectedDeviceSerials ?? []) !!};
+const selectedDeviceIds = {!! json_encode($selectedDeviceIds ?? ($jadwal->devices->pluck('id')->all() ?? [])) !!};
+const selectedDeviceSerials = {!! json_encode($selectedDeviceSerials ?? ($jadwal->devices->pluck('serial_number')->all() ?? [])) !!};
 
 // MQTT Configuration
 const mqttUrl = '{{ config('mqtt.ws_url') }}';
@@ -834,8 +845,8 @@ async function sendToDevices(chunkText, decimalValues) {
                 text: chunkText,
                 chunk_text: chunkText,
                 decimal_values: decimals,
-                device_ids: Array.isArray(jadwalDeviceIds) ? jadwalDeviceIds : [],
-                device_serials: Array.isArray(jadwalDeviceSerials) ? jadwalDeviceSerials : []
+                device_ids: Array.isArray(selectedDeviceIds) ? selectedDeviceIds : [],
+                device_serials: Array.isArray(selectedDeviceSerials) ? selectedDeviceSerials : []
             })
         });
         

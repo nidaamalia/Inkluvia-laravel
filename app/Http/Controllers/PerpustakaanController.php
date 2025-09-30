@@ -5,13 +5,25 @@ namespace App\Http\Controllers;
 use App\Models\Material;
 use App\Models\Device;
 use App\Models\UserSavedMaterial;
+use App\Services\MaterialSessionService;
+use App\Services\MqttService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 
 class PerpustakaanController extends Controller
 {
+    protected MaterialSessionService $materialSessionService;
+    protected MqttService $mqttService;
+
+    public function __construct(MaterialSessionService $materialSessionService, MqttService $mqttService)
+    {
+        $this->materialSessionService = $materialSessionService;
+        $this->mqttService = $mqttService;
+    }
+
     /**
      * Display listing of materials available to user
      */
@@ -276,36 +288,254 @@ class PerpustakaanController extends Controller
         $hasAccess = $material->akses === 'public' || $material->akses == $userLembagaId;
         
         if (!$hasAccess) {
-            return view('user.kirim-braille', [
-                'error' => 'Anda tidak memiliki akses ke materi ini'
-            ]);
+            return redirect()->route('user.perpustakaan')
+                ->with('error', 'Anda tidak memiliki akses ke materi ini');
         }
 
-        // Get user's devices
-        $device = null;
-        if ($request->filled('device_id')) {
-            $device = Device::where('id', $request->device_id)
-                ->where('user_id', Auth::id())
-                ->where('status', 'aktif')
-                ->first();
+        return redirect()->route('user.perpustakaan.start', $material);
+    }
+
+    public function startMaterial(Material $material)
+    {
+        $user = Auth::user();
+        $userLembagaId = $user->lembaga_id;
+
+        $hasAccess = $material->akses === 'public' || $material->akses == $userLembagaId;
+
+        if (!$hasAccess) {
+            abort(403, 'Anda tidak memiliki akses ke materi ini');
         }
 
-        // Get braille content
-        try {
-            $jsonContent = Storage::disk('private')->get($material->file_path);
-            $jsonData = json_decode($jsonContent, true);
-            
-            // Convert to braille format
-            $brailleJson = $this->convertToBrailleFormat($jsonData);
-            
-            return view('user.kirim-braille', compact('material', 'device', 'brailleJson'));
-            
-        } catch (\Exception $e) {
-            Log::error('Failed to load braille content: ' . $e->getMessage());
-            return view('user.kirim-braille', [
-                'error' => 'Gagal memuat konten braille'
-            ]);
+        $devices = Device::where('status', 'aktif')
+            ->where(function ($query) {
+                $query->where('lembaga_id', Auth::user()->lembaga_id)
+                      ->orWhere('user_id', Auth::id());
+            })
+            ->get();
+
+        $preselectedDevices = session('perpustakaan_selected_devices', []);
+
+        return view('user.jadwal-belajar.select-device', [
+            'sessionTitle' => $material->judul,
+            'sessionSubtitle' => Str::limit($material->deskripsi ?? '', 120),
+            'sessionBackRoute' => route('user.perpustakaan'),
+            'sessionBackLabel' => 'Kembali ke Perpustakaan',
+            'sessionSubmitRoute' => route('user.perpustakaan.send-material', $material),
+            'sessionType' => 'perpustakaan',
+            'jadwal' => null,
+            'devices' => $devices,
+            'material' => $material,
+            'preselectedDevices' => $preselectedDevices,
+        ]);
+    }
+
+    public function sendMaterialToDevices(Request $request, Material $material)
+    {
+        $user = Auth::user();
+        $userLembagaId = $user->lembaga_id;
+
+        $hasAccess = $material->akses === 'public' || $material->akses == $userLembagaId;
+
+        if (!$hasAccess) {
+            abort(403, 'Anda tidak memiliki akses ke materi ini');
         }
+
+        $validated = $request->validate([
+            'devices' => 'required|array',
+            'devices.*' => 'exists:devices,id'
+        ]);
+
+        $devices = Device::whereIn('id', $validated['devices'])->get();
+        $deviceIds = $devices->pluck('id')->toArray();
+        $deviceSerials = $devices->pluck('serial_number')->toArray();
+        $characterCapacity = $this->materialSessionService->resolveCharacterCapacity($deviceIds);
+
+        $state = $this->materialSessionService->getInitialState($material, $characterCapacity);
+
+        foreach ($devices as $device) {
+            try {
+                $this->mqttService->sendMaterial($device->serial_number, [
+                    'material_id' => $material->id,
+                    'judul' => $material->judul,
+                    'user' => $user->nama_lengkap,
+                    'character_capacity' => $characterCapacity,
+                    'page_number' => $state['pageNumber'],
+                    'line_number' => max(1, $state['currentLineIndex'] + 1),
+                    'chunk_number' => max(1, $state['currentChunkIndex'] + 1),
+                    'current_chunk_text' => $state['currentChunkText'],
+                    'current_chunk_decimal_values' => $state['currentChunkDecimalValues'],
+                    'current_chunk_decimal' => $state['currentChunkDecimal'],
+                    'timestamp' => now()->toISOString(),
+                    'context' => 'perpustakaan',
+                ]);
+            } catch (\Exception $e) {
+                Log::error('Failed to send material to device: ' . $e->getMessage());
+            }
+        }
+
+        session()->put('perpustakaan_selected_devices', $deviceIds);
+        session()->put('perpustakaan_selected_device_serials', $deviceSerials);
+
+        return redirect()->route('user.perpustakaan.learn', [
+            'material' => $material->id,
+            'page' => 1,
+            'line' => 1,
+        ])->with('success', 'Materi berhasil dikirim ke perangkat!');
+    }
+
+    public function learnMaterial(Request $request, Material $material)
+    {
+        $user = Auth::user();
+        $userLembagaId = $user->lembaga_id;
+
+        $hasAccess = $material->akses === 'public' || $material->akses == $userLembagaId;
+
+        if (!$hasAccess) {
+            abort(403, 'Anda tidak memiliki akses ke materi ini');
+        }
+
+        $pageParam = (int) $request->get('page', 1);
+        $lineParam = $request->get('line', 1);
+        $chunkParam = $request->get('chunk', 1);
+
+        $selectedDeviceIds = session('perpustakaan_selected_devices', []);
+        $selectedDeviceSerials = session('perpustakaan_selected_device_serials', []);
+
+        if (empty($selectedDeviceIds)) {
+            $selectedDeviceIds = Device::where('status', 'aktif')
+                ->where(function ($query) {
+                    $query->where('lembaga_id', Auth::user()->lembaga_id)
+                          ->orWhere('user_id', Auth::id());
+                })
+                ->pluck('id')
+                ->toArray();
+        }
+
+        $characterCapacity = $this->materialSessionService->resolveCharacterCapacity($selectedDeviceIds);
+
+        $state = $this->materialSessionService->composeState(
+            $material,
+            $pageParam,
+            $lineParam,
+            $chunkParam,
+            $characterCapacity
+        );
+
+        return view('user.jadwal-belajar.learn', [
+            'sessionTitle' => $material->judul,
+            'sessionBackRoute' => route('user.perpustakaan'),
+            'sessionBackLabel' => 'Kembali ke Perpustakaan',
+            'sessionCompleteRoute' => null,
+            'sessionType' => 'perpustakaan',
+            'sessionStatusLabel' => 'Mode Perpustakaan',
+            'sessionStatusClass' => 'bg-blue-100 text-blue-800',
+            'jadwal' => null,
+            'material' => $material,
+            'sessionSubtitle' => Str::limit($material->deskripsi ?? '', 120),
+            'pageNumber' => $state['pageNumber'],
+            'currentPage' => $state['pageNumber'],
+            'totalPages' => $state['totalPages'],
+            'currentLine' => $state['totalLines'] > 0 ? $state['currentLineIndex'] + 1 : 0,
+            'currentLineIndex' => $state['currentLineIndex'],
+            'currentChunk' => $state['totalChunks'] > 0 ? $state['currentChunkIndex'] + 1 : 0,
+            'totalLines' => $state['totalLines'],
+            'totalChunks' => $state['totalChunks'],
+            'currentLineText' => $state['currentLineText'],
+            'currentChunkText' => $state['currentChunkText'],
+            'currentChunkDecimal' => $state['currentChunkDecimal'],
+            'currentChunkDecimalValues' => $state['currentChunkDecimalValues'],
+            'characterCapacity' => $state['characterCapacity'],
+            'braillePatterns' => $state['braillePatterns'],
+            'brailleBinaryPatterns' => $state['brailleBinaryPatterns'],
+            'brailleDecimalPatterns' => $state['brailleDecimalPatterns'],
+            'hasNextChunk' => $state['hasNextChunk'],
+            'hasNextLine' => $state['hasNextLine'],
+            'hasPrevious' => $state['hasPrevious'],
+            'deviceCount' => count($selectedDeviceIds),
+            'lines' => $state['originalLines'],
+            'originalLines' => $state['originalLines'],
+            'selectedDeviceIds' => $selectedDeviceIds,
+            'selectedDeviceSerials' => $selectedDeviceSerials,
+            'learnRouteName' => 'user.perpustakaan.learn',
+            'learnRouteParams' => ['material' => $material->id],
+            'navigateRouteName' => 'user.perpustakaan.learn',
+            'navigateRouteParams' => ['material' => $material->id],
+            'materialPageRouteName' => 'user.perpustakaan.material-page',
+            'materialPageParams' => ['material' => $material->id],
+        ]);
+    }
+
+    public function materialPage(Material $material, Request $request)
+    {
+        $user = Auth::user();
+        $userLembagaId = $user->lembaga_id;
+
+        $hasAccess = $material->akses === 'public' || $material->akses == $userLembagaId;
+
+        if (!$hasAccess) {
+            return response()->json(['error' => 'Anda tidak memiliki akses ke materi ini'], 403);
+        }
+
+        $pageParam = (int) $request->get('page', 1);
+        $lineParam = $request->get('line', 1);
+        $chunkParam = $request->get('chunk', 1);
+
+        $selectedDeviceIds = session('perpustakaan_selected_devices', []);
+        if (empty($selectedDeviceIds)) {
+            $selectedDeviceIds = Device::where('status', 'aktif')
+                ->where(function ($query) {
+                    $query->where('lembaga_id', Auth::user()->lembaga_id)
+                          ->orWhere('user_id', Auth::id());
+                })
+                ->pluck('id')
+                ->toArray();
+        }
+
+        $characterCapacity = $this->materialSessionService->resolveCharacterCapacity($selectedDeviceIds);
+
+        $state = $this->materialSessionService->composeState(
+            $material,
+            $pageParam,
+            $lineParam,
+            $chunkParam,
+            $characterCapacity
+        );
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'current_page' => $state['pageNumber'],
+                'currentPage' => $state['pageNumber'],
+                'current_line_index' => $state['currentLineIndex'],
+                'currentLineIndex' => $state['currentLineIndex'],
+                'currentLine' => $state['totalLines'] > 0 ? $state['currentLineIndex'] + 1 : 0,
+                'total_pages' => $state['totalPages'],
+                'totalPages' => $state['totalPages'],
+                'total_lines' => $state['totalLines'],
+                'totalLines' => $state['totalLines'],
+                'lines' => $state['originalLines'],
+                'current_line_text' => $state['currentLineText'],
+                'currentLineText' => $state['currentLineText'],
+                'current_chunk_text' => $state['currentChunkText'],
+                'currentChunkText' => $state['currentChunkText'],
+                'current_chunk_decimal_values' => $state['currentChunkDecimalValues'],
+                'currentChunkDecimalValues' => $state['currentChunkDecimalValues'],
+                'current_chunk_decimal' => $state['currentChunkDecimal'],
+                'currentChunkDecimal' => $state['currentChunkDecimal'],
+                'current_chunk_index' => $state['currentChunkIndex'],
+                'currentChunkIndex' => $state['currentChunkIndex'],
+                'total_chunks' => $state['totalChunks'],
+                'totalChunks' => $state['totalChunks'],
+                'braillePatterns' => $state['braillePatterns'],
+                'brailleBinaryPatterns' => $state['brailleBinaryPatterns'],
+                'brailleDecimalPatterns' => $state['brailleDecimalPatterns'],
+                'characterCapacity' => $state['characterCapacity'],
+                'hasNextChunk' => $state['hasNextChunk'],
+                'hasNextLine' => $state['hasNextLine'],
+                'hasPrevious' => $state['hasPrevious'],
+                'deviceCount' => count($selectedDeviceIds)
+            ]
+        ]);
     }
 
     /**
@@ -364,72 +594,5 @@ class PerpustakaanController extends Controller
         }
 
         return $content;
-    }
-
-    /**
-     * Convert JSON to braille format for EduBraille
-     */
-    private function convertToBrailleFormat($jsonData)
-    {
-        $brailleData = [];
-        $halaman = 1;
-        $counter = 1;
-
-        if (isset($jsonData['pages']) && is_array($jsonData['pages'])) {
-            foreach ($jsonData['pages'] as $pageIndex => $page) {
-                if (isset($page['lines']) && is_array($page['lines'])) {
-                    foreach ($page['lines'] as $line) {
-                        if (isset($line['text'])) {
-                            // Convert each character to braille
-                            $text = $line['text'];
-                            for ($i = 0; $i < strlen($text); $i++) {
-                                $char = $text[$i];
-                                $braillePattern = $this->charToBraillePattern($char);
-                                
-                                $brailleData[] = [
-                                    'halaman' => $halaman,
-                                    'karakter' => $char,
-                                    'braille' => $braillePattern
-                                ];
-                                
-                                $counter++;
-                                // 10 karakter per halaman untuk demo
-                                if ($counter % 10 == 0) {
-                                    $halaman++;
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        return json_encode($brailleData);
-    }
-
-    /**
-     * Convert character to 6-bit braille pattern
-     */
-    private function charToBraillePattern($char)
-    {
-        // Simplified braille mapping (6-bit pattern)
-        $brailleMap = [
-            'a' => '100000', 'b' => '110000', 'c' => '100100',
-            'd' => '100110', 'e' => '100010', 'f' => '110100',
-            'g' => '110110', 'h' => '110010', 'i' => '010100',
-            'j' => '010110', 'k' => '101000', 'l' => '111000',
-            'm' => '101100', 'n' => '101110', 'o' => '101010',
-            'p' => '111100', 'q' => '111110', 'r' => '111010',
-            's' => '011100', 't' => '011110', 'u' => '101001',
-            'v' => '111001', 'w' => '010111', 'x' => '101101',
-            'y' => '101111', 'z' => '101011', ' ' => '000000',
-            '1' => '100000', '2' => '110000', '3' => '100100',
-            '4' => '100110', '5' => '100010', '6' => '110100',
-            '7' => '110110', '8' => '110010', '9' => '010100',
-            '0' => '010110'
-        ];
-
-        $char = strtolower($char);
-        return $brailleMap[$char] ?? '111111'; // Default pattern for unknown chars
     }
 }

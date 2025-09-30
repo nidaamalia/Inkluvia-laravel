@@ -65,6 +65,10 @@ Route::middleware('auth')->group(function () {
         Route::get('/perpustakaan/{material}/preview', [PerpustakaanController::class, 'preview'])->name('perpustakaan.preview');
         Route::get('/perpustakaan/{material}/preview-page', [PerpustakaanController::class, 'showPreview'])->name('perpustakaan.preview-page');
         Route::get('/perpustakaan/{material}/send', [PerpustakaanController::class, 'sendToDevice'])->name('perpustakaan.send');
+        Route::get('/perpustakaan/{material}/start', [PerpustakaanController::class, 'startMaterial'])->name('perpustakaan.start');
+        Route::post('/perpustakaan/{material}/send-material', [PerpustakaanController::class, 'sendMaterialToDevices'])->name('perpustakaan.send-material');
+        Route::get('/perpustakaan/{material}/learn', [PerpustakaanController::class, 'learnMaterial'])->name('perpustakaan.learn');
+        Route::post('/perpustakaan/{material}/material-page', [PerpustakaanController::class, 'materialPage'])->name('perpustakaan.material-page');
         Route::get('/request-materi', [\App\Http\Controllers\MaterialRequestController::class, 'userIndex'])->name('request-materi');
         Route::get('/perpustakaan', [PerpustakaanController::class, 'index'])->name('perpustakaan');
         Route::post('/perpustakaan', [PerpustakaanController::class, 'store'])->name('perpustakaan.store');

@@ -5,22 +5,21 @@ namespace App\Http\Controllers;
 use App\Models\Jadwal;
 use App\Models\Device;
 use App\Models\Material;
-use App\Models\BraillePattern;
 use App\Models\UserSavedMaterial;
 use App\Services\MqttService;
-use App\Services\MaterialContentService;
+use App\Services\MaterialSessionService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
 class JadwalController extends Controller
 {
     protected $mqttService;
-    protected $materialContentService;
+    protected $materialSessionService;
 
-    public function __construct(MqttService $mqttService, MaterialContentService $materialContentService)
+    public function __construct(MqttService $mqttService, MaterialSessionService $materialSessionService)
     {
         $this->mqttService = $mqttService;
-        $this->materialContentService = $materialContentService;
+        $this->materialSessionService = $materialSessionService;
     }
 
     public function index(Request $request)
@@ -193,7 +192,22 @@ class JadwalController extends Controller
             })
             ->get();
 
-        return view('user.jadwal-belajar.select-device', compact('jadwal', 'devices'));
+        $material = $jadwal->material ?? Material::where('judul', $jadwal->materi)
+            ->published()
+            ->accessibleBy(Auth::user())
+            ->first();
+
+        return view('user.jadwal-belajar.select-device', [
+            'sessionTitle' => $jadwal->judul,
+            'sessionBackRoute' => route('user.jadwal-belajar'),
+            'sessionBackLabel' => 'Kembali ke Jadwal',
+            'sessionSubmitRoute' => route('user.jadwal-belajar.send', $jadwal),
+            'sessionType' => 'jadwal',
+            'jadwal' => $jadwal,
+            'devices' => $devices,
+            'material' => $material,
+            'preselectedDevices' => $jadwal->devices()->pluck('devices.id')->all(),
+        ]);
     }
 
     public function sendToDevices(Request $request, Jadwal $jadwal)
@@ -208,7 +222,7 @@ class JadwalController extends Controller
 
         // Persist selected devices for subsequent learning session
         $jadwal->devices()->sync($deviceIds);
-        $characterCapacity = $this->resolveCharacterCapacity($deviceIds);
+        $characterCapacity = $this->materialSessionService->resolveCharacterCapacity($deviceIds);
 
         // Prepare initial chunk data
         $currentChunkText = '';
@@ -216,6 +230,7 @@ class JadwalController extends Controller
         $currentChunkDecimal = '';
         $pageNumber = 1;
         $lineNumber = 1;
+        $chunkNumber = 1;
 
         $material = $jadwal->material ?? Material::where('judul', $jadwal->materi)
             ->published()
@@ -223,39 +238,13 @@ class JadwalController extends Controller
             ->first();
 
         if ($material) {
-            $originalPages = $this->materialContentService->getOriginalPages($material);
-
-            if (!empty($originalPages)) {
-                $pageNumber = (int) array_key_first($originalPages);
-                $originalLines = $originalPages[$pageNumber] ?? [];
-                $firstLine = $originalLines[0] ?? '';
-
-                if ($firstLine !== '') {
-                    $lineChunks = $this->chunkText($firstLine, $characterCapacity);
-                    $currentChunkText = $lineChunks[0] ?? '';
-
-                    if ($currentChunkText !== '') {
-                        $currentChunkDecimalValues = $this->convertTextToDecimalValues($currentChunkText);
-
-                        $brailleLines = $this->materialContentService->getBraillePageLines($material, $pageNumber);
-                        $brailleLine = $brailleLines[0] ?? null;
-
-                        if ($brailleLine && !empty($brailleLine['decimal_values'])) {
-                            $chunkLength = strlen($currentChunkText);
-                            $brailleDecimals = array_slice($brailleLine['decimal_values'], 0, $chunkLength);
-
-                            if (!empty($brailleDecimals)) {
-                                $currentChunkDecimalValues = array_map(
-                                    fn($value) => str_pad((string) $value, 2, '0', STR_PAD_LEFT),
-                                    $brailleDecimals
-                                );
-                            }
-                        }
-
-                        $currentChunkDecimal = implode(' ', $currentChunkDecimalValues);
-                    }
-                }
-            }
+            $state = $this->materialSessionService->getInitialState($material, $characterCapacity);
+            $pageNumber = $state['pageNumber'];
+            $lineNumber = max(1, $state['currentLineIndex'] + 1);
+            $chunkNumber = max(1, $state['currentChunkIndex'] + 1);
+            $currentChunkText = $state['currentChunkText'];
+            $currentChunkDecimalValues = $state['currentChunkDecimalValues'];
+            $currentChunkDecimal = $state['currentChunkDecimal'];
         }
 
         // Send material to selected devices via MQTT
@@ -269,7 +258,7 @@ class JadwalController extends Controller
                     'character_capacity' => $characterCapacity,
                     'page_number' => $pageNumber,
                     'line_number' => $lineNumber,
-                    'chunk_number' => 1,
+                    'chunk_number' => $chunkNumber,
                     'current_chunk_text' => $currentChunkText,
                     'current_chunk_decimal_values' => $currentChunkDecimalValues,
                     'current_chunk_decimal' => $currentChunkDecimal,
@@ -323,9 +312,9 @@ class JadwalController extends Controller
 
         $deviceIds = $jadwal->devices->pluck('id')->toArray();
         $deviceSerials = $jadwal->devices->pluck('serial_number')->toArray();
-        $characterCapacity = $this->resolveCharacterCapacity($deviceIds);
+        $characterCapacity = $this->materialSessionService->resolveCharacterCapacity($deviceIds);
 
-        $state = $this->composeMaterialState(
+        $state = $this->materialSessionService->composeState(
             $material,
             $pageParam,
             $lineParam,
@@ -359,7 +348,21 @@ class JadwalController extends Controller
             'lines' => $state['originalLines'],
             'originalLines' => $state['originalLines'],
             'selectedDeviceIds' => $deviceIds,
-            'selectedDeviceSerials' => $deviceSerials
+            'selectedDeviceSerials' => $deviceSerials,
+            'learnRouteName' => 'user.jadwal-belajar.learn',
+            'learnRouteParams' => ['jadwal' => $jadwal->id],
+            'navigateRouteName' => 'user.jadwal-belajar.navigate',
+            'navigateRouteParams' => ['jadwal' => $jadwal->id],
+            'materialPageRouteName' => 'user.jadwal-belajar.material-page',
+            'materialPageParams' => ['jadwal' => $jadwal->id],
+            'sessionTitle' => $jadwal->judul,
+            'sessionBackRoute' => route('user.jadwal-belajar'),
+            'sessionBackLabel' => 'Kembali ke Jadwal',
+            'sessionCompleteRoute' => route('user.jadwal-belajar.complete', $jadwal),
+            'sessionCompleteMethod' => 'post',
+            'sessionStatusLabel' => 'Sedang Berlangsung',
+            'sessionStatusClass' => 'bg-green-100 text-green-800',
+            'sessionType' => 'jadwal',
         ];
 
         return view('user.jadwal-belajar.learn', $viewData);
@@ -431,9 +434,9 @@ class JadwalController extends Controller
         }
 
         $deviceIds = $jadwal->devices->pluck('id')->toArray();
-        $characterCapacity = $this->resolveCharacterCapacity($deviceIds);
+        $characterCapacity = $this->materialSessionService->resolveCharacterCapacity($deviceIds);
 
-        $state = $this->composeMaterialState(
+        $state = $this->materialSessionService->composeState(
             $material,
             $pageParam,
             $lineParam,
@@ -476,185 +479,6 @@ class JadwalController extends Controller
                 'deviceCount' => count($deviceIds)
             ]
         ]);
-    }
-
-    protected function resolveCharacterCapacity(array $deviceIds): int
-    {
-        if (empty($deviceIds)) {
-            return 5;
-        }
-
-        $minCapacity = Device::whereIn('id', $deviceIds)->min('character_capacity');
-
-        return $minCapacity && $minCapacity > 0 ? (int) $minCapacity : 5;
-    }
-
-    protected function composeMaterialState(
-        Material $material,
-        int $pageParam,
-        $lineParam,
-        $chunkParam,
-        int $characterCapacity
-    ): array {
-        $pageNumber = max(1, $pageParam);
-        $originalPages = $this->materialContentService->getOriginalPages($material);
-        $braillePages = $this->materialContentService->getBraillePages($material);
-
-        if (empty($originalPages)) {
-            return $this->emptyMaterialState($pageNumber, $characterCapacity);
-        }
-
-        if (!array_key_exists($pageNumber, $originalPages)) {
-            $pageNumber = (int) array_key_first($originalPages);
-        }
-
-        $originalLines = $originalPages[$pageNumber] ?? [];
-        $totalPages = count($originalPages);
-        $totalLines = count($originalLines);
-
-        $currentLineIndex = 0;
-        if ($lineParam === 'last' && $totalLines > 0) {
-            $currentLineIndex = $totalLines - 1;
-        } elseif (is_numeric($lineParam)) {
-            $requestedIndex = max(0, ((int) $lineParam) - 1);
-            $currentLineIndex = min($requestedIndex, max($totalLines - 1, 0));
-        }
-
-        $currentLineText = $originalLines[$currentLineIndex] ?? '';
-        $lineChunks = $this->chunkText($currentLineText, $characterCapacity);
-        $totalChunks = count($lineChunks);
-
-        $currentChunkIndex = 0;
-        if ($chunkParam === 'last' && $totalChunks > 0) {
-            $currentChunkIndex = $totalChunks - 1;
-        } elseif (is_numeric($chunkParam)) {
-            $requestedChunk = max(0, ((int) $chunkParam) - 1);
-            $currentChunkIndex = min($requestedChunk, max($totalChunks - 1, 0));
-        }
-
-        $currentChunkText = $lineChunks[$currentChunkIndex] ?? '';
-        $currentChunkDecimalValues = $this->convertTextToDecimalValues($currentChunkText);
-        $currentChunkDecimal = implode(' ', $currentChunkDecimalValues);
-
-        if (!empty($braillePages[$pageNumber] ?? [])) {
-            $brailleLine = $braillePages[$pageNumber][$currentLineIndex] ?? null;
-            if ($brailleLine && !empty($brailleLine['decimal_values'])) {
-                $chunkLength = strlen($currentChunkText);
-                $offset = $currentChunkIndex * $characterCapacity;
-                $brailleSlice = array_slice($brailleLine['decimal_values'], $offset, $chunkLength);
-                $brailleSlice = array_map(fn($value) => str_pad((string) $value, 2, '0', STR_PAD_LEFT), $brailleSlice);
-
-                if (!empty($brailleSlice)) {
-                    $currentChunkDecimalValues = $brailleSlice;
-                    $currentChunkDecimal = implode(' ', $brailleSlice);
-                }
-            }
-        }
-
-        $braillePatterns = [];
-        $brailleBinaryPatterns = [];
-        $brailleDecimalPatterns = [];
-
-        if ($currentLineText !== '') {
-            foreach (str_split($currentLineText) as $char) {
-                if (!array_key_exists($char, $braillePatterns)) {
-                    if ($char === ' ') {
-                        $braillePatterns[$char] = '⠀';
-                        $brailleBinaryPatterns[$char] = '000000';
-                        $brailleDecimalPatterns[$char] = 0;
-                    } else {
-                        $pattern = BraillePattern::getByCharacter($char);
-                        $braillePatterns[$char] = $pattern ? $pattern->braille_unicode : '⠀';
-                        $brailleBinaryPatterns[$char] = $pattern ? $pattern->dots_binary : '000000';
-                        $brailleDecimalPatterns[$char] = $pattern ? $pattern->dots_decimal : 0;
-                    }
-                }
-            }
-        }
-
-        $hasNextChunk = $currentChunkIndex < max($totalChunks - 1, 0);
-        $hasNextLine = $currentLineIndex < max($totalLines - 1, 0);
-        $hasPrevious = $currentChunkIndex > 0 || $currentLineIndex > 0;
-
-        return [
-            'pageNumber' => $pageNumber,
-            'totalPages' => max(1, $totalPages),
-            'originalLines' => $originalLines,
-            'totalLines' => $totalLines,
-            'currentLineIndex' => $currentLineIndex,
-            'currentLineText' => $currentLineText,
-            'characterCapacity' => $characterCapacity,
-            'lineChunks' => $lineChunks,
-            'totalChunks' => $totalChunks,
-            'currentChunkIndex' => $currentChunkIndex,
-            'currentChunkText' => $currentChunkText,
-            'currentChunkDecimalValues' => $currentChunkDecimalValues,
-            'currentChunkDecimal' => $currentChunkDecimal,
-            'braillePatterns' => $braillePatterns,
-            'brailleBinaryPatterns' => $brailleBinaryPatterns,
-            'brailleDecimalPatterns' => $brailleDecimalPatterns,
-            'hasNextChunk' => $hasNextChunk,
-            'hasNextLine' => $hasNextLine,
-            'hasPrevious' => $hasPrevious
-        ];
-    }
-
-    protected function emptyMaterialState(int $pageNumber, int $characterCapacity): array
-    {
-        return [
-            'pageNumber' => $pageNumber,
-            'totalPages' => 1,
-            'originalLines' => [],
-            'totalLines' => 0,
-            'currentLineIndex' => 0,
-            'currentLineText' => '',
-            'characterCapacity' => $characterCapacity,
-            'lineChunks' => [],
-            'totalChunks' => 0,
-            'currentChunkIndex' => 0,
-            'currentChunkText' => '',
-            'currentChunkDecimalValues' => [],
-            'currentChunkDecimal' => '',
-            'braillePatterns' => [],
-            'brailleBinaryPatterns' => [],
-            'brailleDecimalPatterns' => [],
-            'hasNextChunk' => false,
-            'hasNextLine' => false,
-            'hasPrevious' => false
-        ];
-    }
-
-    protected function chunkText(string $text, int $characterCapacity): array
-    {
-        $safeCapacity = max(1, $characterCapacity);
-
-        if ($text === '') {
-            return [];
-        }
-
-        return str_split($text, $safeCapacity);
-    }
-
-    protected function convertTextToDecimalValues(string $text): array
-    {
-        if ($text === '') {
-            return [];
-        }
-
-        $values = [];
-
-        foreach (str_split($text) as $char) {
-            if ($char === ' ') {
-                $values[] = '00';
-                continue;
-            }
-
-            $pattern = BraillePattern::getByCharacter($char);
-            $decimalValue = $pattern ? $pattern->dots_decimal : 0;
-            $values[] = str_pad((string) $decimalValue, 2, '0', STR_PAD_LEFT);
-        }
-
-        return $values;
     }
 
     /**
