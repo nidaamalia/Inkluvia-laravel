@@ -107,7 +107,8 @@ class DeviceTextController extends Controller
             );
             $logs[] = $logMessage;
             
-            $success = $this->mqttService->publish($topic, json_encode($payload));
+            $topic = 'abatago/00/control';
+            $success = $this->mqttService->publish($topic, $decimalPayload);
             
             $resultMessage = $success 
                 ? sprintf('MQTT Publish Success - Topic: %s, Device ID: %d', $topic, $device->id)
