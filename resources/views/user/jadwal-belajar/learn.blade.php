@@ -76,6 +76,15 @@
                 <div class="text-xs text-gray-400 mt-2">
                     Chunk {{ $currentChunk }} dari {{ $totalChunks }}
                 </div>
+                <div class="mt-4 flex flex-col items-center gap-2 text-sm text-gray-700">
+                    <button id="btn-read" type="button"
+                            class="px-4 py-2 bg-primary text-white rounded-lg shadow hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
+                            aria-label="Bacakan teks saat ini (tombol spasi)">
+                        <i class="fas fa-volume-up mr-2" aria-hidden="true"></i>
+                        Bacakan Teks (Spasi)
+                    </button>
+                    <span id="speech-status" class="text-xs text-gray-500" role="status" aria-live="polite"></span>
+                </div>
             </div>
 
             <!-- Navigation Info -->
@@ -653,20 +662,60 @@ function updateView() {
 }
 
 // Text to speech
-function speakCharacter() {
-    const text = document.getElementById('braille-character').textContent;
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = 'id-ID';
-    utterance.rate = 0.9;
-    
-    const voices = window.speechSynthesis.getVoices();
-    const indoVoice = voices.find(v => v.lang === 'id-ID');
-    if (indoVoice) utterance.voice = indoVoice;
-    
-    window.speechSynthesis.cancel();
-    window.speechSynthesis.speak(utterance);
-    
-    document.getElementById('announcements').textContent = 'Membaca: ' + text;
+const speechSupported = 'speechSynthesis' in window && typeof SpeechSynthesisUtterance !== 'undefined';
+let speechStatusElement = null;
+let activeUtterance = null;
+
+function updateSpeechStatus(message) {
+    if (speechStatusElement) {
+        speechStatusElement.textContent = message;
+    }
+    const announceEl = document.getElementById('announcements');
+    if (announceEl) {
+        announceEl.textContent = message;
+    }
+}
+
+function toggleSpeechPlayback() {
+    if (!speechSupported) {
+        updateSpeechStatus('Text to speech tidak didukung di browser ini.');
+        return;
+    }
+
+    const synth = window.speechSynthesis;
+
+    if (synth.speaking || synth.pending || synth.paused) {
+        synth.cancel();
+        updateSpeechStatus('Pengucapan dihentikan.');
+        return;
+    }
+
+    let textToSpeak = (currentLineText || '').trim();
+    if (!textToSpeak) {
+        textToSpeak = (brailleData.current_chunk_text || '').trim();
+    }
+
+    if (!textToSpeak) {
+        updateSpeechStatus('Tidak ada teks untuk dibacakan.');
+        return;
+    }
+
+    activeUtterance = new SpeechSynthesisUtterance(textToSpeak);
+    activeUtterance.lang = 'id-ID';
+    activeUtterance.rate = 0.95;
+
+    const voices = synth.getVoices();
+    const indoVoice = voices.find(v => v.lang && v.lang.startsWith('id'));
+    if (indoVoice) {
+        activeUtterance.voice = indoVoice;
+    }
+
+    activeUtterance.onstart = () => updateSpeechStatus('Membacakan teks...');
+    activeUtterance.onend = () => updateSpeechStatus('Pengucapan selesai.');
+    activeUtterance.onerror = () => updateSpeechStatus('Gagal membacakan teks.');
+
+    synth.cancel();
+    synth.speak(activeUtterance);
 }
 
 function triggerNavigation(linkId) {
@@ -687,6 +736,11 @@ function triggerNavigation(linkId) {
 
 // Event listeners
 document.addEventListener('DOMContentLoaded', function() {
+    speechStatusElement = document.getElementById('speech-status');
+    if (!speechSupported && speechStatusElement) {
+        speechStatusElement.textContent = 'Browser Anda tidak mendukung text to speech.';
+    }
+
     // Button controls
     const btnPrev = document.getElementById('btn-prev');
     const btnNext = document.getElementById('btn-next');
@@ -714,9 +768,9 @@ document.addEventListener('DOMContentLoaded', function() {
             updateView();
         };
     }
-    
+
     if (btnRead) {
-        btnRead.onclick = speakCharacter;
+        btnRead.onclick = toggleSpeechPlayback;
     }
     
     // Line navigation
@@ -761,6 +815,10 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Keyboard shortcuts
     document.addEventListener('keydown', function(e) {
+        if (['INPUT', 'TEXTAREA', 'SELECT', 'BUTTON'].includes(e.target.tagName) || e.target.isContentEditable) {
+            return;
+        }
+
         let handled = false;
 
         switch(e.key) {
@@ -783,7 +841,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 handled = triggerNavigation('link-page-prev');
                 break;
             case ' ':
-                speakCharacter();
+                toggleSpeechPlayback();
                 handled = true;
                 break;
         }
