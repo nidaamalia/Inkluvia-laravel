@@ -8,6 +8,7 @@ use App\Models\Material;
 use App\Models\UserSavedMaterial;
 use App\Services\MqttService;
 use App\Services\MaterialSessionService;
+use App\Services\DeviceButtonChannel;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -314,6 +315,11 @@ class JadwalController extends Controller
         $deviceSerials = $jadwal->devices->pluck('serial_number')->toArray();
         $characterCapacity = $this->materialSessionService->resolveCharacterCapacity($deviceIds);
 
+        $buttonTopic = null;
+        if (count($deviceSerials) === 1) {
+            $buttonTopic = DeviceButtonChannel::topicForSerial($deviceSerials[0]);
+        }
+
         $state = $this->materialSessionService->composeState(
             $material,
             $pageParam,
@@ -363,6 +369,8 @@ class JadwalController extends Controller
             'sessionStatusLabel' => 'Sedang Berlangsung',
             'sessionStatusClass' => 'bg-green-100 text-green-800',
             'sessionType' => 'jadwal',
+            'buttonTopic' => $buttonTopic,
+            'buttonNavigationEnabled' => $buttonTopic !== null,
         ];
 
         return view('user.jadwal-belajar.learn', $viewData);

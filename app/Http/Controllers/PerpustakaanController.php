@@ -7,6 +7,7 @@ use App\Models\Device;
 use App\Models\UserSavedMaterial;
 use App\Services\MaterialSessionService;
 use App\Services\MqttService;
+use App\Services\DeviceButtonChannel;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
@@ -421,6 +422,11 @@ class PerpustakaanController extends Controller
             $characterCapacity
         );
 
+        $buttonTopic = null;
+        if (count($selectedDeviceSerials) === 1) {
+            $buttonTopic = DeviceButtonChannel::topicForSerial($selectedDeviceSerials[0]);
+        }
+
         return view('user.jadwal-belajar.learn', [
             'sessionTitle' => $material->judul,
             'sessionBackRoute' => route('user.perpustakaan'),
@@ -462,6 +468,8 @@ class PerpustakaanController extends Controller
             'navigateRouteParams' => ['material' => $material->id],
             'materialPageRouteName' => 'user.perpustakaan.material-page',
             'materialPageParams' => ['material' => $material->id],
+            'buttonTopic' => $buttonTopic,
+            'buttonNavigationEnabled' => $buttonTopic !== null,
         ]);
     }
 

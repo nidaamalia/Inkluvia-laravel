@@ -23,5 +23,6 @@ return [
         'device_command' => 'inkluvia/device/command',
         'material_send' => 'inkluvia/material/send',
         'device_heartbeat' => 'inkluvia/device/heartbeat',
+        'device_button' => env('MQTT_DEVICE_BUTTON_TOPIC', 'abatago'),
     ]
 ];

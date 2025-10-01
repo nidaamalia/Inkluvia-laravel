@@ -88,7 +88,8 @@ class DeviceTextController extends Controller
         $successCount = 0;
 
         foreach ($devices as $device) {
-            $topic = 'edubraille/' . $device->id . '/control';
+            //$topic = 'edubraille/' . $device->id . '/control';
+            $topic = 'abatago/00/control';
             $payload = [
                 'command' => 'display_text',
                 'device_id' => $device->id,
@@ -111,7 +112,7 @@ class DeviceTextController extends Controller
             $success = $this->mqttService->publish($topic, $decimalPayload);
             
             $resultMessage = $success 
-                ? sprintf('MQTT Publish Success - Topic: %s, Device ID: %d', $topic, $device->id)
+                ? sprintf('MQTT Publish Success - Topic: %s, Device ID: %d', $topic, $decimalPayload)
                 : sprintf('MQTT Publish Failed - Topic: %s', $topic);
             $logs[] = $resultMessage;
             
@@ -121,7 +122,7 @@ class DeviceTextController extends Controller
                 'serial_number' => $device->serial_number,
                 'success' => $success,
                 'topic' => $topic,
-                'decimal_values' => $decimalValues
+                'decimalPayload' => $decimalPayload
             ];
 
             if ($success) {

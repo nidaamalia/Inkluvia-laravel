@@ -340,6 +340,8 @@ const materialPageUrl = {!! json_encode(isset($materialPageRouteName) ? route($m
 const deviceSendUrl = {!! json_encode(route('user.device.send-text')) !!};
 const selectedDeviceIds = {!! json_encode($selectedDeviceIds ?? ($jadwal->devices->pluck('id')->all() ?? [])) !!};
 const selectedDeviceSerials = {!! json_encode($selectedDeviceSerials ?? ($jadwal->devices->pluck('serial_number')->all() ?? [])) !!};
+const buttonNavigationEnabled = {!! json_encode($buttonNavigationEnabled ?? false) !!};
+const buttonTopic = {!! json_encode($buttonTopic ?? null) !!};
 
 // MQTT Configuration
 const mqttUrl = '{{ config('mqtt.ws_url') }}';
@@ -366,7 +368,14 @@ console.log('Space unicode from DB:', brailleData.braille_patterns ? brailleData
 // MQTT Connection Handlers
 mqttClient.on('connect', function() {
     updateMqttStatus('Terhubung ke MQTT Broker', false);
-    mqttClient.subscribe(mqttTopic);
+    if (mqttTopic) {
+        mqttClient.subscribe(mqttTopic);
+    }
+
+    if (buttonNavigationEnabled && buttonTopic) {
+        mqttClient.subscribe(buttonTopic);
+        console.log('Subscribed to device button topic:', buttonTopic);
+    }
 });
 
 mqttClient.on('error', function(err) {
@@ -375,6 +384,51 @@ mqttClient.on('error', function(err) {
 
 mqttClient.on('offline', function() {
     updateMqttStatus('Koneksi MQTT terputus', true);
+});
+
+mqttClient.on('message', function(topic, message) {
+    const payload = message ? message.toString().trim() : '';
+    console.log('MQTT message received', { topic, payload });
+
+    if (!payload) {
+        return;
+    }
+
+    if (!buttonNavigationEnabled || !buttonTopic) {
+        updateMqttStatus('Payload tombol diterima (navigasi non-aktif): ' + payload, false);
+        return;
+    }
+
+    if (topic !== buttonTopic) {
+        console.log('Payload tidak untuk topik tombol, diabaikan');
+        return;
+    }
+
+    try {
+        updateMqttStatus('Payload tombol diterima: ' + payload, false);
+
+        const actionMap = {
+            '1': 'link-page-prev',
+            '4': 'link-page-next',
+            '2': 'link-line-prev',
+            '5': 'link-line-next',
+            '3': 'link-chunk-prev',
+            '6': 'link-chunk-next'
+        };
+
+        const targetLink = actionMap[payload] ?? null;
+
+        if (targetLink) {
+            const handled = triggerNavigation(targetLink);
+            if (!handled) {
+                console.log('Navigation action ignored for payload:', payload);
+            }
+        } else {
+            console.log('Unknown button payload received:', payload);
+        }
+    } catch (error) {
+        console.error('Failed to handle button payload:', error);
+    }
 });
 
 function updateMqttStatus(message, isError = false) {
