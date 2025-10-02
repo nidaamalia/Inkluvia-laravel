@@ -468,8 +468,4 @@ class PdfConversionService
         // Reconvert
         return $this->convertPdfToBraille($material);
     }
-<<<<<<< HEAD
 }
-=======
-}
->>>>>>> a5df58d (update fitur user)
