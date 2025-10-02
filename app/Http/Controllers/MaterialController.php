@@ -65,7 +65,7 @@ class MaterialController extends Controller
             'edisi' => 'nullable|string|max:100',
             'kategori' => 'nullable|string',
             'tingkat' => 'required|string',
-            'file' => 'required|file|mimes:pdf|max:40960', // 40MB max
+            'file' => 'required|file|mimes:pdf|max:51200', // 50MB max
             'akses' => 'required'
         ]);
         
@@ -126,7 +126,7 @@ class MaterialController extends Controller
             'tingkat' => 'required|string',
             'status' => 'required|in:draft,processing,review,published,archived,pending',
             'akses' => 'required',
-            'file' => 'nullable|file|mimes:pdf|max:10240' // 10MB max
+            'file' => 'nullable|file|mimes:pdf|max:51200' // 50MB max
         ]);
         
         if ($validator->fails()) {
@@ -700,7 +700,7 @@ class MaterialController extends Controller
     {
         try {
             $validator = Validator::make($request->all(), [
-                'file' => 'required|file|mimes:pdf|max:10240', // 10MB max
+                'file' => 'required|file|mimes:pdf|max:51200', // 50MB max
                 'judul' => 'nullable|string|max:255',
                 'penerbit' => 'nullable|string|max:255',
                 'tahun' => 'nullable|integer|min:1900|max:' . date('Y'),
