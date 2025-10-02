@@ -261,6 +261,114 @@ class PdfConversionService
 
         return $codePoint[1] ?? null;
     }
+    
+    /**
+     * Convert single line of text to Braille using the BrailleConverter
+     */
+    private function convertLineToBraille($text)
+    {
+        // Preprocess mathematical content
+        $text = $this->preprocessMathContent($text);
+        
+        return $this->brailleConverter->convertLine($text);
+    }
+
+    /**
+     * Preprocess mathematical content for better conversion
+     */
+    private function preprocessMathContent($text)
+    {
+        // Normalize mathematical symbols
+        $text = $this->normalizeMathSymbols($text);
+        
+        // Handle mathematical expressions
+        $text = $this->handleMathExpressions($text);
+        
+        // Clean up spacing around mathematical symbols
+        $text = $this->cleanMathSpacing($text);
+        
+        return $text;
+    }
+
+    /**
+     * Normalize mathematical symbols to standard Unicode
+     */
+    private function normalizeMathSymbols($text)
+    {
+        $normalizations = [
+            // Common ASCII alternatives to proper mathematical symbols
+            '!=' => '≠',
+            '<=' => '≤',
+            '>=' => '≥',
+            '~=' => '≈',
+            '+-' => '±',
+            '-+' => '∓',
+            '*' => '×', // when used as multiplication
+            '/' => '÷', // when used as division
+            '^' => '^', // keep as is for exponents
+            'sqrt' => '√',
+            'inf' => '∞',
+            'pi' => 'π',
+            'alpha' => 'α',
+            'beta' => 'β',
+            'gamma' => 'γ',
+            'delta' => 'δ',
+            'epsilon' => 'ε',
+            'theta' => 'θ',
+            'lambda' => 'λ',
+            'mu' => 'μ',
+            'sigma' => 'σ',
+            'phi' => 'φ',
+            'omega' => 'ω',
+        ];
+        
+        foreach ($normalizations as $ascii => $unicode) {
+            $text = str_replace($ascii, $unicode, $text);
+        }
+        
+        return $text;
+    }
+
+    /**
+     * Handle mathematical expressions and equations
+     */
+    private function handleMathExpressions($text)
+    {
+        // Handle common mathematical patterns
+        
+        // Fractions: a/b -> a÷b
+        $text = preg_replace('/(\w+)\/(\w+)/u', '$1÷$2', $text);
+        
+        // Powers: x^2 -> x^2 (keep as is)
+        // This is already handled by the BrailleConverter
+        
+        // Square roots: sqrt(x) -> √x
+        $text = preg_replace('/sqrt\s*\(([^)]+)\)/u', '√$1', $text);
+        
+        // Mathematical functions
+        $functions = ['sin', 'cos', 'tan', 'log', 'ln', 'exp', 'abs', 'max', 'min', 'lim', 'sum', 'prod', 'int'];
+        foreach ($functions as $func) {
+            $text = preg_replace('/\b' . $func . '\s*\(/u', $func . '(', $text);
+        }
+        
+        return $text;
+    }
+
+    /**
+     * Clean up spacing around mathematical symbols
+     */
+    private function cleanMathSpacing($text)
+    {
+        // Remove extra spaces around mathematical operators
+        $text = preg_replace('/\s*([+\-×÷=<>≤≥≠±∓])\s*/u', '$1', $text);
+        
+        // Ensure proper spacing around comparison operators
+        $text = preg_replace('/([^=])(=)([^=])/u', '$1 $2 $3', $text);
+        $text = preg_replace('/([^<])([<≥≤])([^=])/u', '$1 $2 $3', $text);
+        $text = preg_replace('/([^>])([>≤≥])([^=])/u', '$1 $2 $3', $text);
+        
+        return $text;
+    }
 
     /**
      * Save Braille content to database and file
@@ -360,4 +468,8 @@ class PdfConversionService
         // Reconvert
         return $this->convertPdfToBraille($material);
     }
+<<<<<<< HEAD
 }
+=======
+}
+>>>>>>> a5df58d (update fitur user)

@@ -69,6 +69,11 @@
                 aria-label="Request Materi">
                     <i class="fas fa-plus-circle mr-3" aria-hidden="true"></i>
                     Request Materi
+                <a href="{{ route('user.materi-saya') }}" 
+                class="nav-link {{ request()->routeIs('user.materi-saya*') ? 'active' : '' }}"
+                aria-label="Materi Saya">
+                    <i class="fas fa-folder-open mr-3" aria-hidden="true"></i>
+                    Materi Saya
                 </a>
                 
                 <a href="{{ route('user.perpustakaan') }}" 

@@ -5,6 +5,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\LembagaController;
 use App\Http\Controllers\DeviceController;
+use App\Http\Controllers\UserMaterialController;
 use App\Http\Controllers\PerpustakaanController;
 use App\Http\Controllers\MaterialController;
 use App\Http\Controllers\MaterialRequestController;
@@ -58,6 +59,17 @@ Route::middleware('auth')->group(function () {
         Route::get('/request-materi', function () {
             return view('user.request-materi');
         })->name('request-materi');
+        
+        // Materi Saya routes
+        Route::get('/materi-saya', [UserMaterialController::class, 'index'])->name('materi-saya');
+        Route::get('/materi-saya/create', [UserMaterialController::class, 'create'])->name('materi-saya.create');
+        Route::post('/materi-saya', [UserMaterialController::class, 'store'])->name('materi-saya.store');
+        Route::get('/materi-saya/{material}/edit', [UserMaterialController::class, 'edit'])->name('materi-saya.edit');
+        Route::put('/materi-saya/{material}', [UserMaterialController::class, 'update'])->name('materi-saya.update');
+        Route::delete('/materi-saya/{material}', [UserMaterialController::class, 'destroy'])->name('materi-saya.destroy');
+        Route::get('/materi-saya/{material}/preview', [UserMaterialController::class, 'preview'])->name('materi-saya.preview');
+        Route::get('/materi-saya/{material}/download', [UserMaterialController::class, 'download'])->name('materi-saya.download');
+
         // Perpustakaan routes
         Route::get('/perpustakaan', [PerpustakaanController::class, 'index'])->name('perpustakaan');
         Route::get('/materi-tersimpan', [PerpustakaanController::class, 'savedMaterials'])->name('materi-tersimpan');
@@ -122,6 +134,16 @@ Route::middleware('auth')->group(function () {
         Route::get('/manajemen-perangkat', function () {
             return view('admin.manajemen-perangkat');
         })->name('kelola-perangkat');
+        Route::get('/manajemen-perangkat', [DeviceController::class, 'index'])->name('kelola-perangkat');
+        Route::get('/manajemen-perangkat/create', [DeviceController::class, 'create'])->name('kelola-perangkat.create');
+        Route::post('/manajemen-perangkat', [DeviceController::class, 'store'])->name('kelola-perangkat.store');
+        Route::get('/manajemen-perangkat/{device}/edit', [DeviceController::class, 'edit'])->name('kelola-perangkat.edit');
+        Route::put('/manajemen-perangkat/{device}', [DeviceController::class, 'update'])->name('kelola-perangkat.update');
+        Route::delete('/manajemen-perangkat/{device}', [DeviceController::class, 'destroy'])->name('kelola-perangkat.destroy');
+        Route::post('/manajemen-perangkat/{device}/ping', [DeviceController::class, 'ping'])->name('kelola-perangkat.ping');
+        Route::post('/manajemen-perangkat/{device}/status', [DeviceController::class, 'requestStatus'])->name('kelola-perangkat.status');
+        Route::get('/manajemen-perangkat/users-by-lembaga', [DeviceController::class, 'getUsersByLembaga'])->name('kelola-perangkat.users-by-lembaga');
+        
     });
 });
 

@@ -79,6 +79,7 @@ class PdfToJsonService
             }
             
             $paramString = implode(' ', $params);
+<<<<<<< HEAD
             $pythonCmd = $this->resolvePythonCommand();
 
             if ($this->isExplicitPath($pythonCmd) && !file_exists($pythonCmd)) {
@@ -87,6 +88,18 @@ class PdfToJsonService
             }
 
             $cmd = trim("{$pythonCmd} {$pythonScript} {$pdfFile} -o {$outputFileEscaped} {$paramString}");
+=======
+            // Use the full path to Python directly (faster)
+            $pythonCmd = 'C:\Python313\python.exe';
+            
+            // Verify Python exists
+            if (!file_exists($pythonCmd)) {
+                Log::error('Python not found at: ' . $pythonCmd);
+                return null;
+            }
+            
+            $cmd = "{$pythonCmd} {$pythonScript} {$pdfFile} -o {$outputFileEscaped} {$paramString}";
+>>>>>>> a5df58d (update fitur user)
             
             Log::info('Executing command via cmd: ' . $cmd);
             

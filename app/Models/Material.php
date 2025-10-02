@@ -13,6 +13,9 @@ class Material extends Model
     protected $fillable = [
         'judul',
         'deskripsi',
+        'tahun_terbit',
+        'penerbit',
+        'edisi',
         'kategori',
         'tingkat',
         'status',
