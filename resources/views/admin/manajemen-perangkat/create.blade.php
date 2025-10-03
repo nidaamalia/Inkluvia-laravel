@@ -63,7 +63,7 @@
             </div>
         </div>
         
-        <div style="display: grid; grid-template-columns: 1fr; gap: 1.5rem; margin-bottom: 2rem;">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 2rem;">
             <div class="form-group">
                 <label for="status" class="form-label">Status <span style="color: var(--danger);">*</span></label>
                 <select id="status" name="status" class="form-select" required>
@@ -72,6 +72,16 @@
                     <option value="tidak_aktif" {{ old('status') === 'tidak_aktif' ? 'selected' : '' }}>Tidak Aktif</option>
                     <option value="maintenance" {{ old('status') === 'maintenance' ? 'selected' : '' }}>Maintenance</option>
                 </select>
+            </div>
+
+            <div class="form-group">
+                <label for="character_capacity" class="form-label">Jumlah Karakter <span style="color: var(--danger);">*</span></label>
+                <input type="number" id="character_capacity" name="character_capacity" class="form-input" 
+                       value="{{ old('character_capacity', 40) }}" min="1" max="20" required
+                       placeholder="Masukkan jumlah karakter yang dapat ditampilkan">
+                <small style="color: var(--text-light); font-size: 0.875rem;">
+                    Masukkan jumlah karakter yang dapat ditampilkan.
+                </small>
             </div>
         </div>
         
@@ -112,6 +122,9 @@
                             <span id="preview-lembaga">Lembaga</span>
                             <span id="preview-user" style="margin-left: 0.5rem;"></span>
                         </div>
+                        <div style="font-size: 0.875rem; color: var(--text-light); margin-top: 0.25rem;">
+                            <strong>Kapasitas:</strong> <span id="preview-capacity">-</span> karakter
+                        </div>
                         <div style="margin-top: 0.5rem;">
                             <span class="badge badge-secondary" id="preview-status">Status</span>
                         </div>
@@ -139,6 +152,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const lembagaSelect = document.getElementById('lembaga_id');
     const userSelect = document.getElementById('user_id');
     const statusSelect = document.getElementById('status');
+    const capacityInput = document.getElementById('character_capacity');
     const userRequired = document.getElementById('user_required');
     const userHelp = document.getElementById('user_help');
     
@@ -148,6 +162,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const previewLembaga = document.getElementById('preview-lembaga');
     const previewUser = document.getElementById('preview-user');
     const previewStatus = document.getElementById('preview-status');
+    const previewCapacity = document.getElementById('preview-capacity');
     
     function updatePreview() {
         previewNama.textContent = namaInput.value || 'Nama Perangkat';
@@ -162,6 +177,8 @@ document.addEventListener('DOMContentLoaded', function() {
         } else {
             previewUser.textContent = '';
         }
+
+        previewCapacity.textContent = capacityInput.value || '-';
         
         const selectedStatus = statusSelect.options[statusSelect.selectedIndex];
         previewStatus.textContent = selectedStatus.text !== 'Pilih Status' ? selectedStatus.text : 'Status';
@@ -181,6 +198,7 @@ document.addEventListener('DOMContentLoaded', function() {
     lembagaSelect.addEventListener('change', updatePreview);
     userSelect.addEventListener('change', updatePreview);
     statusSelect.addEventListener('change', updatePreview);
+    capacityInput.addEventListener('input', updatePreview);
     
     // Initialize preview
     updatePreview();

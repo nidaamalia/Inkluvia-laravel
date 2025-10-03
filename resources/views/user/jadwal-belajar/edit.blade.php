@@ -53,7 +53,7 @@
                            required
                            class="w-full text-lg px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary"
                            aria-required="true"
-                           value="{{ old('waktu_mulai', \Carbon\Carbon::parse($jadwal->waktu_mulai)->format('H:i')) }}">
+                           value="{{ old('waktu_mulai', $jadwal->waktu_mulai->format('H:i')) }}">
                 </div>
                 
                 <div>
@@ -66,7 +66,7 @@
                            required
                            class="w-full text-lg px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary"
                            aria-required="true"
-                           value="{{ old('waktu_selesai', \Carbon\Carbon::parse($jadwal->waktu_selesai)->format('H:i')) }}">
+                           value="{{ old('waktu_selesai', $jadwal->waktu_selesai->format('H:i')) }}">
                 </div>
             </div>
 
@@ -75,25 +75,60 @@
                 <label class="block text-base font-semibold text-gray-900 mb-3">
                     Pilih Materi <span class="text-red-500">*</span>
                 </label>
+                
+                @if($savedMaterials->count() > 0)
                 <div class="space-y-3">
-                    @foreach($materials as $key => $material)
+                    @foreach($savedMaterials as $material)
                     <div class="relative">
                         <input type="radio" 
-                               id="materi_{{ $loop->index }}" 
-                               name="materi" 
-                               value="{{ $material }}"
-                               {{ old('materi', $jadwal->materi) == $material ? 'checked' : '' }}
-                               class="peer sr-only"
-                               required>
-                        <label for="materi_{{ $loop->index }}" 
-                               class="flex items-center p-4 border-2 border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50 peer-checked:border-primary peer-checked:bg-primary peer-checked:bg-opacity-10 peer-focus:ring-2 peer-focus:ring-primary peer-focus:ring-offset-2 transition-all">
-                            <i class="fas fa-book text-primary mr-4 text-xl" aria-hidden="true"></i>
-                            <span class="text-base font-medium text-gray-900">{{ $material }}</span>
-                            <i class="fas fa-check-circle text-primary ml-auto opacity-0 peer-checked:opacity-100 transition-opacity" aria-hidden="true"></i>
+                            id="material_{{ $material->id }}" 
+                            name="material_id" 
+                            value="{{ $material->id }}"
+                            {{ old('material_id', $jadwal->getOriginalMaterialId()) == $material->id ? 'checked' : '' }}
+                            class="peer sr-only"
+                            required>
+                        <label for="material_{{ $material->id }}" 
+                            class="flex items-start p-4 border-2 border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50 peer-checked:border-primary peer-checked:bg-primary peer-checked:bg-opacity-10 peer-focus:ring-2 peer-focus:ring-primary peer-focus:ring-offset-2 transition-all">
+                            <i class="fas fa-book text-primary mr-4 text-xl mt-1" aria-hidden="true"></i>
+                            <div class="flex-1">
+                                <div class="text-base font-medium text-gray-900 mb-1">{{ $material->judul }}</div>
+                                <div class="text-sm text-gray-600 mb-2">
+                                    <span class="inline-flex items-center px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full mr-2">
+                                        {{ \App\Models\Material::getTingkatOptions()[$material->tingkat] ?? $material->tingkat }}
+                                    </span>
+                                    @if($material->kategori)
+                                    <span class="inline-flex items-center px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full mr-2">
+                                        {{ \App\Models\Material::getKategoriOptions()[$material->kategori] ?? $material->kategori }}
+                                    </span>
+                                    @endif
+                                    <span class="text-gray-500">{{ $material->total_halaman }} halaman</span>
+                                </div>
+                                @if($material->deskripsi)
+                                <p class="text-sm text-gray-500 leading-relaxed">
+                                    {{ Str::limit($material->deskripsi, 100) }}
+                                </p>
+                                @endif
+                            </div>
+                            <i class="fas fa-check-circle text-primary ml-4 opacity-0 peer-checked:opacity-100 transition-opacity text-xl" aria-hidden="true"></i>
                         </label>
                     </div>
                     @endforeach
                 </div>
+                @else
+                <!-- Empty State -->
+                <div class="text-center py-8 border-2 border-dashed border-gray-300 rounded-lg">
+                    <i class="fas fa-bookmark text-4xl text-gray-300 mb-4" aria-hidden="true"></i>
+                    <h3 class="text-lg font-semibold text-gray-700 mb-2">Belum Ada Materi Tersimpan</h3>
+                    <p class="text-gray-500 mb-4">
+                        Anda perlu menyimpan materi terlebih dahulu dari perpustakaan untuk membuat jadwal belajar.
+                    </p>
+                    <a href="{{ route('user.perpustakaan') }}" 
+                    class="inline-flex items-center px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark focus:outline-none focus:ring-4 focus:ring-primary transition-colors duration-200">
+                        <i class="fas fa-book mr-2" aria-hidden="true"></i>
+                        Jelajahi Perpustakaan
+                    </a>
+                </div>
+                @endif
             </div>
 
             <!-- Pengulangan -->

@@ -1,16 +1,16 @@
 @extends('layouts.user')
 
-@section('title', 'Pilih Perangkat EduBraille')
+@section('title', $sessionTitle ?? 'Pilih Perangkat EduBraille')
 
 @section('content')
 <div class="max-w-4xl mx-auto">
     <!-- Back Button -->
     <div class="mb-6">
-        <a href="{{ route('user.jadwal-belajar') }}" 
+        <a href="{{ $sessionBackRoute ?? route('user.jadwal-belajar') }}" 
            class="inline-flex items-center text-primary hover:text-primary-dark font-medium focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 rounded px-2 py-1"
-           aria-label="Kembali ke daftar jadwal">
+           aria-label="{{ $sessionBackLabel ?? 'Kembali ke daftar jadwal' }}">
             <i class="fas fa-arrow-left mr-2" aria-hidden="true"></i>
-            Kembali
+            {{ $sessionBackLabel ?? 'Kembali' }}
         </a>
     </div>
 
@@ -22,15 +22,16 @@
 
     <!-- Jadwal Info Card -->
     <div class="bg-gradient-to-r from-primary to-primary-dark text-white rounded-xl p-6 mb-6 shadow-lg">
-        <h2 class="text-xl font-bold mb-2">{{ $jadwal->judul }}</h2>
+        <h2 class="text-xl font-bold mb-2">{{ $sessionTitle ?? ($jadwal->judul ?? $material->judul ?? 'Materi EduBraille') }}</h2>
         <div class="space-y-1 text-sm opacity-90">
+            @if(!empty($jadwal))
             <div>
                 <i class="far fa-calendar mr-2" aria-hidden="true"></i>
-                {{ $jadwal->tanggal->format('d F Y') }}
+                {{ optional($jadwal->tanggal)->format('d F Y') }}
             </div>
             <div>
                 <i class="far fa-clock mr-2" aria-hidden="true"></i>
-                {{ $jadwal->waktu_mulai->format('H:i') }} - {{ $jadwal->waktu_selesai->format('H:i') }}
+                {{ optional($jadwal->waktu_mulai)->format('H:i') }} - {{ optional($jadwal->waktu_selesai)->format('H:i') }}
             </div>
             @if($jadwal->materi)
             <div>
@@ -38,11 +39,29 @@
                 {{ $jadwal->materi }}
             </div>
             @endif
+            @elseif(!empty($material))
+            <div>
+                <i class="fas fa-book mr-2" aria-hidden="true"></i>
+                {{ $material->judul }}
+            </div>
+            @if($material->tingkat)
+            <div>
+                <i class="fas fa-layer-group mr-2" aria-hidden="true"></i>
+                {{ \App\Models\Material::getTingkatOptions()[$material->tingkat] ?? $material->tingkat }}
+            </div>
+            @endif
+            @if($material->kategori)
+            <div>
+                <i class="fas fa-tag mr-2" aria-hidden="true"></i>
+                {{ \App\Models\Material::getKategoriOptions()[$material->kategori] ?? $material->kategori }}
+            </div>
+            @endif
+            @endif
         </div>
     </div>
 
     <!-- Device Selection Form -->
-    <form method="POST" action="{{ route('user.jadwal-belajar.send', $jadwal) }}" id="deviceForm">
+    <form method="POST" action="{{ $sessionSubmitRoute ?? route('user.jadwal-belajar.send', $jadwal) }}" id="deviceForm">
         @csrf
         
         <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
@@ -120,10 +139,10 @@
 
         <!-- Action Buttons -->
         <div class="flex flex-col sm:flex-row gap-4 justify-end">
-            <a href="{{ route('user.jadwal-belajar') }}" 
+            <a href="{{ $sessionBackRoute ?? route('user.jadwal-belajar') }}" 
                class="px-6 py-3 border border-gray-300 text-gray-700 text-center font-medium rounded-lg hover:bg-gray-50 transition-colors focus:ring-2 focus:ring-gray-400 focus:ring-offset-2"
                aria-label="Batal memilih perangkat">
-                Batal
+                {{ $sessionCancelLabel ?? 'Batal' }}
             </a>
             <button 
                 type="submit" 
@@ -152,7 +171,6 @@
         </div>
     </div>
 </div>
-
 <!-- Live Region for Screen Reader Announcements -->
 <div aria-live="polite" aria-atomic="true" class="sr-only" id="announcements"></div>
 
@@ -163,15 +181,34 @@ document.addEventListener('DOMContentLoaded', function() {
     const selectAll = document.getElementById('selectAll');
     const submitBtn = document.getElementById('submitBtn');
     const announcements = document.getElementById('announcements');
+    const preselected = @json($preselectedDevices ?? []);
+
+    if (Array.isArray(preselected) && preselected.length > 0) {
+        checkboxes.forEach(cb => {
+            if (preselected.includes(Number(cb.value))) {
+                cb.checked = true;
+            }
+        });
+    }
 
     // Update button state based on selection
     function updateButtonState() {
-        const checkedCount = document.querySelectorAll('input[name="devices[]"]:checked').length;
+        const checkedNodes = document.querySelectorAll('input[name="devices[]"]:checked');
+        const checkedCount = checkedNodes.length;
         submitBtn.disabled = checkedCount === 0;
-        
-        // Announce selection count
+
+        if (selectAll) {
+            const checkboxesArr = Array.from(checkboxes);
+            const allChecked = checkboxesArr.length > 0 && checkboxesArr.every(cb => cb.checked);
+            const someChecked = checkboxesArr.some(cb => cb.checked);
+            selectAll.checked = allChecked;
+            selectAll.indeterminate = someChecked && !allChecked;
+        }
+
         if (checkedCount > 0) {
             announcements.textContent = `${checkedCount} perangkat dipilih`;
+        } else {
+            announcements.textContent = 'Tidak ada perangkat dipilih';
         }
     }
 

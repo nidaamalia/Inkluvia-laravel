@@ -50,28 +50,44 @@
             <!-- Navigation Menu -->
             <nav class="py-2" aria-label="Menu Navigasi">
                 <a href="{{ route('dashboard') }}" 
-                   class="nav-link {{ request()->routeIs('dashboard') ? 'active' : '' }}"
-                   aria-label="Dashboard"
-                   aria-current="{{ request()->routeIs('dashboard') ? 'page' : 'false' }}">
+                class="nav-link {{ request()->routeIs('dashboard') ? 'active' : '' }}"
+                aria-label="Dashboard"
+                aria-current="{{ request()->routeIs('dashboard') ? 'page' : 'false' }}">
+                    <i class="fas fa-home mr-3" aria-hidden="true"></i>
                     Dashboard
                 </a>
                 
                 <a href="{{ route('user.jadwal-belajar') }}" 
-                   class="nav-link {{ request()->routeIs('user.jadwal-belajar') ? 'active' : '' }}"
-                   aria-label="Jadwal Sesi Belajar">
+                class="nav-link {{ request()->routeIs('user.jadwal-belajar*') ? 'active' : '' }}"
+                aria-label="Jadwal Sesi Belajar">
+                    <i class="fas fa-calendar-alt mr-3" aria-hidden="true"></i>
                     Jadwal Sesi Belajar
                 </a>
                 
                 <a href="{{ route('user.request-materi') }}" 
-                   class="nav-link {{ request()->routeIs('user.request-materi') ? 'active' : '' }}"
-                   aria-label="Request Materi">
+                class="nav-link {{ request()->routeIs('user.request-materi') ? 'active' : '' }}"
+                aria-label="Request Materi">
+                    <i class="fas fa-plus-circle mr-3" aria-hidden="true"></i>
                     Request Materi
+                <a href="{{ route('user.materi-saya') }}" 
+                class="nav-link {{ request()->routeIs('user.materi-saya*') ? 'active' : '' }}"
+                aria-label="Materi Saya">
+                    <i class="fas fa-folder-open mr-3" aria-hidden="true"></i>
+                    Materi Saya
                 </a>
                 
                 <a href="{{ route('user.perpustakaan') }}" 
-                   class="nav-link {{ request()->routeIs('user.perpustakaan') ? 'active' : '' }}"
-                   aria-label="Perpustakaan">
+                class="nav-link {{ request()->routeIs('user.perpustakaan') ? 'active' : '' }}"
+                aria-label="Perpustakaan">
+                    <i class="fas fa-book mr-3" aria-hidden="true"></i>
                     Perpustakaan
+                </a>
+                
+                <a href="{{ route('user.materi-tersimpan') }}" 
+                class="nav-link {{ request()->routeIs('user.materi-tersimpan') ? 'active' : '' }}"
+                aria-label="Materi Tersimpan">
+                    <i class="fas fa-bookmark mr-3" aria-hidden="true"></i>
+                    Materi Tersimpan
                 </a>
             </nav>
         </aside>

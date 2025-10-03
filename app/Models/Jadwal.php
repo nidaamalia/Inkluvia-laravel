@@ -23,6 +23,8 @@ class Jadwal extends Model
 
     protected $casts = [
         'tanggal' => 'date',
+        'waktu_mulai' => 'datetime',
+        'waktu_selesai' => 'datetime',
     ];
 
     /**
@@ -31,6 +33,14 @@ class Jadwal extends Model
     public function user()
     {
         return $this->belongsTo(User::class);
+    }
+
+    /**
+     * The devices that belong to the jadwal.
+     */
+    public function devices()
+    {
+        return $this->belongsToMany(Device::class, 'device_jadwal', 'jadwal_id', 'device_id');
     }
 
     /**
@@ -69,10 +79,35 @@ class Jadwal extends Model
 
     /**
      * Check if can start session
+     * Always returns true to allow restarting completed sessions
      */
     public function canStart()
     {
-        return $this->status === 'belum_mulai';
+        return true;
+    }
+
+    /**
+     * Get original material ID for edit form
+     * This method tries to find the material ID based on the saved title
+     */
+    public function getOriginalMaterialId()
+    {
+        if ($this->materi) {
+            $material = \App\Models\Material::where('judul', $this->materi)->first();
+            return $material ? $material->id : null;
+        }
+        return null;
+    }
+
+    /**
+     * Get related material model
+     */
+    public function getMaterialAttribute()
+    {
+        if ($this->materi) {
+            return \App\Models\Material::where('judul', $this->materi)->first();
+        }
+        return null;
     }
 
     /**

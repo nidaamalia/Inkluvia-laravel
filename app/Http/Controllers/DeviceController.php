@@ -96,6 +96,7 @@ class DeviceController extends Controller
             'lembaga_id' => 'required|exists:lembagas,id',
             'user_id' => 'nullable|exists:users,id',
             'status' => 'required|in:aktif,tidak_aktif,maintenance',
+            'character_capacity' => 'required|integer|min:1|max:20',
             'keterangan' => 'nullable|string|max:1000'
         ]);
         
@@ -122,6 +123,7 @@ class DeviceController extends Controller
             'lembaga_id' => $request->lembaga_id,
             'user_id' => $request->user_id,
             'status' => $request->status,
+            'character_capacity' => $request->character_capacity,
             'keterangan' => $request->keterangan,
         ]);
         
@@ -163,6 +165,7 @@ class DeviceController extends Controller
             'lembaga_id' => 'required|exists:lembagas,id',
             'user_id' => 'nullable|exists:users,id',
             'status' => 'required|in:aktif,tidak_aktif,maintenance',
+            'character_capacity' => 'required|integer|min:1|max:255',
             'keterangan' => 'nullable|string|max:1000'
         ]);
         
@@ -188,6 +191,7 @@ class DeviceController extends Controller
             'lembaga_id' => $request->lembaga_id,
             'user_id' => $request->user_id,
             'status' => $request->status,
+            'character_capacity' => $request->character_capacity,
             'keterangan' => $request->keterangan,
         ]);
         

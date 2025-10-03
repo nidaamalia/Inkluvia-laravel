@@ -13,11 +13,31 @@ class AuthController extends Controller
 {
     public function showLogin()
     {
+        // Jika user sudah login, redirect ke dashboard sesuai role
+        if (Auth::check()) {
+            $user = Auth::user();
+            if ($user->role === 'admin') {
+                return redirect()->route('admin.dashboard');
+            } else {
+                return redirect()->route('user.dashboard');
+            }
+        }
+        
         return view('auth.login');
     }
 
     public function showRegister()
     {
+        // Jika user sudah login, redirect ke dashboard sesuai role
+        if (Auth::check()) {
+            $user = Auth::user();
+            if ($user->role === 'admin') {
+                return redirect()->route('admin.dashboard');
+            } else {
+                return redirect()->route('user.dashboard');
+            }
+        }
+        
         $lembagas = Lembaga::all();
         return view('auth.register', compact('lembagas'));
     }
@@ -52,7 +72,12 @@ class AuthController extends Controller
 
         Auth::login($user);
 
-        return redirect()->route('dashboard');
+        // Redirect ke dashboard sesuai role
+        if ($user->role === 'admin') {
+            return redirect()->route('admin.dashboard');
+        } else {
+            return redirect()->route('user.dashboard');
+        }
     }
 
     public function login(Request $request)
@@ -62,9 +87,23 @@ class AuthController extends Controller
             'password' => 'required',
         ]);
 
+        // Jika user sudah login dengan user lain, logout dulu
+        if (Auth::check()) {
+            Auth::logout();
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
+        }
+
         if (Auth::attempt($credentials)) {
             $request->session()->regenerate();
-            return redirect()->intended('dashboard');
+            $user = Auth::user();
+            
+            // Redirect ke dashboard sesuai role
+            if ($user->role === 'admin') {
+                return redirect()->intended(route('admin.dashboard'));
+            } else {
+                return redirect()->intended(route('user.dashboard'));
+            }
         }
 
         return back()->withErrors([
@@ -77,6 +116,6 @@ class AuthController extends Controller
         Auth::logout();
         $request->session()->invalidate();
         $request->session()->regenerateToken();
-        return redirect('/');
+        return redirect()->route('login')->with('success', 'Anda telah berhasil logout.');
     }
 }

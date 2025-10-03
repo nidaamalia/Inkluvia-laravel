@@ -1,16 +1,16 @@
 @extends('layouts.user')
 
-@section('title', 'Kirim Materi Braille')
+@section('title', $sessionTitle ?? 'Kirim Materi Braille')
 
 @section('content')
 <div class="max-w-4xl mx-auto">
     <!-- Back Button -->
     <div class="mb-6">
-        <a href="{{ route('user.jadwal-belajar') }}" 
+        <a href="{{ $sessionBackRoute ?? route('user.jadwal-belajar') }}" 
            class="inline-flex items-center text-primary hover:text-primary-dark font-medium focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 rounded px-2 py-1"
-           aria-label="Kembali ke daftar jadwal">
+           aria-label="{{ $sessionBackLabel ?? 'Kembali ke daftar jadwal' }}">
             <i class="fas fa-arrow-left mr-2" aria-hidden="true"></i>
-            Kembali ke Jadwal
+            {{ $sessionBackLabel ?? 'Kembali' }}
         </a>
     </div>
 
@@ -18,80 +18,215 @@
     <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 mb-6">
         <div class="flex items-center justify-between">
             <div>
-                <h1 class="text-xl font-bold text-gray-900">{{ $jadwal->judul }}</h1>
-                <p class="text-sm text-gray-600">{{ $jadwal->materi ?? 'Materi Pembelajaran' }}</p>
+                <h1 class="text-xl font-bold text-gray-900">{{ $sessionTitle ?? ($material->judul ?? 'Materi EduBraille') }}</h1>
+                @if(!empty($sessionSubtitle))
+                    <p class="text-sm text-gray-600">{{ $sessionSubtitle }}</p>
+                @elseif(!empty($jadwal))
+                    <p class="text-sm text-gray-600">{{ $jadwal->materi ?? 'Materi Pembelajaran' }}</p>
+                @elseif(!empty($material) && !empty($material->deskripsi))
+                    <p class="text-sm text-gray-600">{{ \Illuminate\Support\Str::limit($material->deskripsi, 120) }}</p>
+                @endif
             </div>
-            <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
-                <i class="fas fa-circle text-xs mr-2 animate-pulse" aria-hidden="true"></i>
-                Sedang Berlangsung
+            @if(!empty($sessionStatusLabel))
+            <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium {{ $sessionStatusClass ?? 'bg-green-100 text-green-800' }}">
+                <i class="fas fa-circle text-xs mr-2 {{ ($sessionStatusClass ?? '') ? '' : 'animate-pulse' }}" aria-hidden="true"></i>
+                {{ $sessionStatusLabel }}
             </span>
+            @endif
         </div>
     </div>
 
     <!-- Braille Display -->
     <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-8 mb-6">
         <div class="text-center mb-8">
-            <h2 class="text-lg font-semibold text-primary mb-4">Pengenalan Braille</h2>
+            <h2 class="text-lg font-semibold text-primary mb-4">Teks Asli (Baris {{ $currentLine }} dari {{ $totalLines }})</h2>
             
-            <!-- Braille Dots -->
-            <div id="braille-display" class="mb-6" aria-label="Tampilan pola braille">
-                <div id="braille-dots" class="inline-block"></div>
+            <!-- Original Text Display -->
+            <div class="mb-6 p-4 bg-gray-50 rounded-lg">
+                <p class="text-lg">{{ $currentLineText }}</p>
+            </div>
+            
+            <h3 class="text-md font-semibold text-gray-700 mb-3">Tampilan Braille ({{ $characterCapacity }} karakter per baris)</h3>
+            
+            <!-- Braille Display -->
+            <div id="braille-display" class="mb-6 p-4 bg-gray-100 rounded-lg" aria-label="Tampilan pola braille">
+                <div class="text-4xl mb-2">
+                    @foreach(str_split($currentChunkText) as $char)
+                        <span class="braille-char" style="margin: 0 2px;">
+                            {{ $braillePatterns[$char] ?? '⠀' }}
+                        </span>
+                    @endforeach
+                </div>
+                <div class="text-sm text-gray-500">
+                    @foreach(str_split($currentChunkText) as $char)
+                        <span style="display: inline-block; width: 24px; text-align: center;">
+                            {{ $char === ' ' ? ' ' : $char }}
+                        </span>
+                    @endforeach
+                </div>
+                <!-- @if(!empty($currentChunkDecimalValues))
+                <div class="text-sm text-gray-500 mt-2">
+                    @foreach($currentChunkDecimalValues as $decimal)
+                        <span style="display: inline-block; width: 24px; text-align: center;">
+                            {{ $decimal }}
+                        </span>
+                    @endforeach
+                </div>
+                @endif -->
+                <div class="text-xs text-gray-400 mt-2">
+                    Chunk {{ $currentChunk }} dari {{ $totalChunks }}
+                </div>
+                <div class="mt-4 flex flex-col items-center gap-2 text-sm text-gray-700">
+                    <button id="btn-read" type="button"
+                            class="px-4 py-2 bg-primary text-white rounded-lg shadow hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
+                            aria-label="Bacakan teks saat ini (tombol spasi)">
+                        <i class="fas fa-volume-up mr-2" aria-hidden="true"></i>
+                        Bacakan Teks (Spasi)
+                    </button>
+                    <span id="speech-status" class="text-xs text-gray-500" role="status" aria-live="polite"></span>
+                </div>
             </div>
 
-            <!-- Character Display -->
-            <div id="braille-character" 
-                 class="text-6xl font-bold text-gray-900 mb-4"
-                 aria-live="polite"
-                 aria-atomic="true"></div>
-
-            <!-- Page Info -->
-            <div id="page-info" 
-                 class="text-gray-600"
-                 role="status"
-                 aria-live="polite"></div>
-        </div>
+            <!-- Navigation Info -->
+            <div id="navigation-info" class="text-gray-600 text-sm mb-4">
+                <div>Halaman {{ $pageNumber }} dari {{ $totalPages }}</div>
+                <div>Baris {{ $currentLine }} dari {{ $totalLines }}</div>
+            </div>
+            
+            <!-- Braille Unicode Pattern (hidden, used for MQTT) -->
+            <div id="braille-unicode-pattern" class="sr-only" aria-hidden="true"></div>
 
         <!-- Navigation Controls -->
-        <div class="space-y-4">
-            <!-- Main Controls -->
-            <div class="flex flex-wrap gap-3 justify-center">
-                <button id="btn-prev" 
-                        class="px-6 py-3 bg-white border-2 border-primary text-primary font-medium rounded-lg hover:bg-primary hover:text-white transition-colors focus:ring-2 focus:ring-primary focus:ring-offset-2"
-                        aria-label="Karakter sebelumnya">
-                    <i class="fas fa-chevron-left mr-2" aria-hidden="true"></i>
-                    Sebelumnya
-                </button>
+        <div class="space-y-3">
+            <!-- Row 1: Chunk Navigation -->
+            <div class="grid grid-cols-2 gap-3">
+                <!-- Previous Chunk -->
+                <div>
+                    @if($currentChunk > 1 || $currentLine > 1 || $pageNumber > 1)
+                        <a id="link-chunk-prev" href="{{ route($learnRouteName ?? 'user.jadwal-belajar.learn', array_merge($learnRouteParams ?? ['jadwal' => $jadwal->id ?? null], [
+                            'page' => $currentChunk > 1 ? $pageNumber : ($currentLine > 1 ? $pageNumber : $pageNumber - 1),
+                            'line' => $currentChunk > 1 ? $currentLine : ($currentLine > 1 ? $currentLine - 1 : 'last'),
+                            'chunk' => $currentChunk > 1 ? $currentChunk - 1 : 'last'
+                        ])) }}"
+                           class="w-full flex items-center justify-center px-3 py-3 bg-white border-2 border-primary text-primary font-medium rounded-lg hover:bg-primary hover:text-white transition-colors focus:ring-2 focus:ring-primary focus:ring-offset-2"
+                           aria-label="Chunk sebelumnya">
+                            <i class="fas fa-chevron-left mr-2" aria-hidden="true"></i>
+                            <span class="whitespace-nowrap">Chunk Sebelumnya</span>
+                        </a>
+                    @else
+                        <button disabled class="w-full flex items-center justify-center px-3 py-3 bg-gray-100 text-gray-400 font-medium rounded-lg cursor-not-allowed">
+                            <i class="fas fa-chevron-left mr-2" aria-hidden="true"></i>
+                            <span class="whitespace-nowrap">Chunk Sebelumnya</span>
+                        </button>
+                    @endif
+                </div>
 
-                <button id="btn-read" 
-                        class="px-6 py-3 bg-primary text-white font-medium rounded-lg hover:bg-primary-dark transition-colors focus:ring-2 focus:ring-primary focus:ring-offset-2"
-                        aria-label="Baca karakter dengan suara">
-                    <i class="fas fa-volume-up mr-2" aria-hidden="true"></i>
-                    Baca
-                </button>
-
-                <button id="btn-next" 
-                        class="px-6 py-3 bg-white border-2 border-primary text-primary font-medium rounded-lg hover:bg-primary hover:text-white transition-colors focus:ring-2 focus:ring-primary focus:ring-offset-2"
-                        aria-label="Karakter selanjutnya">
-                    Selanjutnya
-                    <i class="fas fa-chevron-right ml-2" aria-hidden="true"></i>
-                </button>
+                <!-- Next Chunk -->
+                <div>
+                    @if($hasNextChunk || $hasNextLine || $pageNumber < $totalPages)
+                        <a id="link-chunk-next" href="{{ route($learnRouteName ?? 'user.jadwal-belajar.learn', array_merge($learnRouteParams ?? ['jadwal' => $jadwal->id ?? null], [
+                            'page' => $hasNextChunk ? $pageNumber : ($hasNextLine ? $pageNumber : $pageNumber + 1),
+                            'line' => $hasNextChunk ? $currentLine : ($hasNextLine ? $currentLine + 1 : 1),
+                            'chunk' => $hasNextChunk ? $currentChunk + 1 : 1
+                        ])) }}" 
+                           class="w-full flex items-center justify-center px-3 py-3 bg-white border-2 border-primary text-primary font-medium rounded-lg hover:bg-primary hover:text-white transition-colors focus:ring-2 focus:ring-primary focus:ring-offset-2"
+                           aria-label="Chunk selanjutnya">
+                            <span class="whitespace-nowrap">Chunk Berikutnya</span>
+                            <i class="fas fa-chevron-right ml-2" aria-hidden="true"></i>
+                        </a>
+                    @else
+                        <button disabled class="w-full flex items-center justify-center px-3 py-3 bg-gray-100 text-gray-400 font-medium rounded-lg cursor-not-allowed">
+                            <span class="whitespace-nowrap">Chunk Berikutnya</span>
+                            <i class="fas fa-chevron-right ml-2" aria-hidden="true"></i>
+                        </button>
+                    @endif
+                </div>
             </div>
 
-            <!-- Page Controls -->
-            <div class="flex gap-3 justify-center">
-                <button id="btn-page-prev" 
-                        class="px-4 py-2 bg-gray-100 text-gray-700 font-medium rounded-lg hover:bg-gray-200 transition-colors focus:ring-2 focus:ring-gray-400 focus:ring-offset-2"
-                        aria-label="Halaman sebelumnya">
-                    <i class="fas fa-angle-double-left" aria-hidden="true"></i>
-                    Halaman Sebelumnya
-                </button>
+            <!-- Row 2: Line Navigation -->
+            <div class="grid grid-cols-2 gap-3">
+                <!-- Previous Line -->
+                <div>
+                    @if($currentLine > 1 || $pageNumber > 1)
+                        <a id="link-line-prev" href="{{ route($learnRouteName ?? 'user.jadwal-belajar.learn', array_merge($learnRouteParams ?? ['jadwal' => $jadwal->id ?? null], [
+                            'page' => $currentLine > 1 ? $pageNumber : $pageNumber - 1,
+                            'line' => $currentLine > 1 ? $currentLine - 1 : 'last',
+                            'chunk' => 'last'
+                        ])) }}"
+                           class="w-full flex items-center justify-center px-3 py-3 bg-blue-50 border-2 border-blue-200 text-blue-700 font-medium rounded-lg hover:bg-blue-100 transition-colors focus:ring-2 focus:ring-blue-400 focus:ring-offset-2"
+                           aria-label="Baris sebelumnya">
+                            <i class="fas fa-chevron-up mr-2" aria-hidden="true"></i>
+                            <span class="whitespace-nowrap">Baris Sebelumnya</span>
+                        </a>
+                    @else
+                        <button disabled class="w-full flex items-center justify-center px-3 py-3 bg-gray-100 text-gray-400 font-medium rounded-lg cursor-not-allowed">
+                            <i class="fas fa-chevron-up mr-2" aria-hidden="true"></i>
+                            <span class="whitespace-nowrap">Baris Sebelumnya</span>
+                        </button>
+                    @endif
+                </div>
 
-                <button id="btn-page-next" 
-                        class="px-4 py-2 bg-gray-100 text-gray-700 font-medium rounded-lg hover:bg-gray-200 transition-colors focus:ring-2 focus:ring-gray-400 focus:ring-offset-2"
-                        aria-label="Halaman selanjutnya">
-                    Halaman Selanjutnya
-                    <i class="fas fa-angle-double-right" aria-hidden="true"></i>
-                </button>
+                <!-- Next Line -->
+                <div>
+                    @if($hasNextLine || $pageNumber < $totalPages)
+                        <a id="link-line-next" href="{{ route($learnRouteName ?? 'user.jadwal-belajar.learn', array_merge($learnRouteParams ?? ['jadwal' => $jadwal->id ?? null], [
+                            'page' => $hasNextLine ? $pageNumber : $pageNumber + 1,
+                            'line' => $hasNextLine ? $currentLine + 1 : 1,
+                            'chunk' => 1
+                        ])) }}" 
+                           class="w-full flex items-center justify-center px-3 py-3 bg-blue-50 border-2 border-blue-200 text-blue-700 font-medium rounded-lg hover:bg-blue-100 transition-colors focus:ring-2 focus:ring-blue-400 focus:ring-offset-2"
+                           aria-label="Baris selanjutnya">
+                            <span class="whitespace-nowrap">Baris Berikutnya</span>
+                            <i class="fas fa-chevron-down ml-2" aria-hidden="true"></i>
+                        </a>
+                    @else
+                        <button disabled class="w-full flex items-center justify-center px-3 py-3 bg-gray-100 text-gray-400 font-medium rounded-lg cursor-not-allowed">
+                            <span class="whitespace-nowrap">Baris Berikutnya</span>
+                            <i class="fas fa-chevron-down ml-2" aria-hidden="true"></i>
+                        </button>
+                    @endif
+                </div>
+            </div>
+
+            <!-- Row 3: Page Navigation -->
+            <div class="grid grid-cols-2 gap-3">
+                <!-- Previous Page -->
+                <div>
+                    @if($pageNumber > 1)
+                        <a id="link-page-prev" href="{{ route($learnRouteName ?? 'user.jadwal-belajar.learn', array_merge($learnRouteParams ?? ['jadwal' => $jadwal->id ?? null], ['page' => $pageNumber - 1, 'line' => 1, 'chunk' => 1])) }}"
+                           class="w-full flex items-center justify-center px-3 py-3 bg-white border-2 border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors focus:ring-2 focus:ring-gray-400 focus:ring-offset-2"
+                           aria-label="Halaman sebelumnya">
+                            <i class="fas fa-chevron-double-left mr-2" aria-hidden="true"></i>
+                            <span class="whitespace-nowrap">Halaman Sebelumnya</span>
+                        </a>
+                    @else
+                        <button disabled class="w-full flex items-center justify-center px-3 py-3 bg-gray-100 text-gray-400 font-medium rounded-lg cursor-not-allowed">
+                            <i class="fas fa-chevron-double-left mr-2" aria-hidden="true"></i>
+                            <span class="whitespace-nowrap">Halaman Sebelumnya</span>
+                        </button>
+                    @endif
+                </div>
+
+                <!-- Next Page / Complete -->
+                <div>
+                    @if($pageNumber < $totalPages)
+                        <a id="link-page-next" href="{{ route($learnRouteName ?? 'user.jadwal-belajar.learn', array_merge($learnRouteParams ?? ['jadwal' => $jadwal->id ?? null], ['page' => $pageNumber + 1, 'line' => 1, 'chunk' => 1])) }}" 
+                           class="w-full flex items-center justify-center px-3 py-3 bg-white border-2 border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors focus:ring-2 focus:ring-gray-400 focus:ring-offset-2"
+                           aria-label="Halaman selanjutnya">
+                            <span class="whitespace-nowrap">Halaman Berikutnya</span>
+                            <i class="fas fa-chevron-double-right ml-2" aria-hidden="true"></i>
+                        </a>
+                    @else
+                        @if(!empty($sessionCompleteRoute))
+                        <a href="{{ $sessionCompleteRoute }}" 
+                           class="w-full flex items-center justify-center px-3 py-3 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 transition-colors focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
+                           aria-label="Selesai belajar">
+                            <span class="whitespace-nowrap">Selesai Belajar</span>
+                            <i class="fas fa-check-circle ml-2" aria-hidden="true"></i>
+                        </a>
+                        @endif
+                    @endif
+                </div>
             </div>
         </div>
 
@@ -105,23 +240,53 @@
         </div>
     </div>
 
-    <!-- Original Text -->
+    <!-- Full Text Preview -->
     <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <h3 class="text-lg font-semibold text-gray-900 mb-4">Teks Original</h3>
-        <div id="original-text" 
-             class="text-xl leading-relaxed tracking-wide"
-             aria-label="Teks lengkap materi pembelajaran"></div>
+        <h3 class="text-lg font-semibold text-gray-900 mb-4">Pratinjau Teks Lengkap</h3>
+        <div class="space-y-2">
+            @foreach($originalLines as $index => $line)
+                <div class="p-2 rounded {{ $index + 1 == $currentLine ? 'bg-blue-50 border-l-4 border-blue-500' : '' }}">
+                    @if($index + 1 == $currentLine)
+                        <strong>Baris {{ $index + 1 }}:</strong> {{ $line }}
+                    @else
+                        <span class="text-gray-600">Baris {{ $index + 1 }}:</span> {{ $line }}
+                    @endif
+                </div>
+            @endforeach
+        </div>
     </div>
 
     <!-- Keyboard Shortcuts Info -->
     <div class="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
         <h3 class="text-sm font-semibold text-blue-900 mb-2">Pintasan Keyboard:</h3>
         <div class="grid grid-cols-1 md:grid-cols-3 gap-2 text-sm text-blue-800">
-            <div><kbd class="px-2 py-1 bg-white rounded border border-blue-300">←</kbd> Karakter sebelumnya</div>
-            <div><kbd class="px-2 py-1 bg-white rounded border border-blue-300">→</kbd> Karakter selanjutnya</div>
-            <div><kbd class="px-2 py-1 bg-white rounded border border-blue-300">Space</kbd> Baca karakter</div>
+            <div><kbd class="px-2 py-1 bg-white rounded border border-blue-300">←</kbd> Chunk sebelumnya</div>
+            <div><kbd class="px-2 py-1 bg-white rounded border border-blue-300">→</kbd> Chunk berikutnya</div>
+            <div><kbd class="px-2 py-1 bg-white rounded border border-blue-300">↑</kbd> Baris sebelumnya</div>
+            <div><kbd class="px-2 py-1 bg-white rounded border border-blue-300">↓</kbd> Baris berikutnya</div>
+            <div><kbd class="px-2 py-1 bg-white rounded border border-blue-300">Page Up</kbd> Halaman berikutnya</div>
+            <div><kbd class="px-2 py-1 bg-white rounded border border-blue-300">Page Down</kbd> Halaman sebelumnya</div>
+            <div><kbd class="px-2 py-1 bg-white rounded border border-blue-300">Space</kbd> Baca karakter saat ini</div>
         </div>
     </div>
+
+    <!-- Tombol Selesai Belajar -->
+    @if(!empty($sessionCompleteRoute))
+    <div class="mt-6 text-center">
+        <form id="complete-session-form" action="{{ $sessionCompleteRoute }}" method="POST" class="inline-block">
+            @csrf
+            @if(isset($sessionCompleteMethod) && strtolower($sessionCompleteMethod) !== 'post')
+                @method($sessionCompleteMethod)
+            @endif
+            <button type="submit" 
+                    class="px-6 py-3 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 transition-colors focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
+                    aria-label="Selesaikan sesi belajar">
+                <i class="fas fa-check-circle mr-2" aria-hidden="true"></i>
+                Selesai Belajar
+            </button>
+        </form>
+    </div>
+    @endif
 </div>
 
 <!-- Live Region for Screen Reader -->
@@ -163,7 +328,29 @@
 
 <script>
 // Inject braille data from controller
-const brailleData = {!! $brailleData !!};
+const brailleData = {
+    current_page: {{ $pageNumber }},
+    current_line_index: {{ $currentLineIndex }},
+    total_pages: {{ $totalPages }},
+    total_lines: {{ $totalLines }},
+    lines: {!! json_encode($lines) !!},
+    material_title: {!! json_encode($material->judul) !!},
+    material_description: {!! json_encode($material->deskripsi ?? '') !!},
+    current_line_text: {!! json_encode($currentLineText) !!},
+    braille_patterns: {!! json_encode($braillePatterns) !!},
+    braille_binary_patterns: {!! json_encode($brailleBinaryPatterns) !!},
+    braille_decimal_patterns: {!! json_encode($brailleDecimalPatterns) !!},
+    current_chunk_text: {!! json_encode($currentChunkText) !!},
+    current_chunk_decimal_values: {!! json_encode($currentChunkDecimalValues ?? []) !!}
+};
+
+const navigateUrl = {!! json_encode(isset($navigateRouteName) ? route($navigateRouteName, $navigateRouteParams ?? []) : route('user.jadwal-belajar.navigate', ['jadwal' => $jadwal->id ?? null])) !!};
+const materialPageUrl = {!! json_encode(isset($materialPageRouteName) ? route($materialPageRouteName, $materialPageParams ?? []) : route('user.jadwal-belajar.material-page', ['jadwal' => $jadwal->id ?? null])) !!};
+const deviceSendUrl = {!! json_encode(route('user.device.send-text')) !!};
+const selectedDeviceIds = {!! json_encode($selectedDeviceIds ?? ($jadwal->devices->pluck('id')->all() ?? [])) !!};
+const selectedDeviceSerials = {!! json_encode($selectedDeviceSerials ?? ($jadwal->devices->pluck('serial_number')->all() ?? [])) !!};
+const buttonNavigationEnabled = {!! json_encode($buttonNavigationEnabled ?? false) !!};
+const buttonTopic = {!! json_encode($buttonTopic ?? null) !!};
 
 // MQTT Configuration
 const mqttUrl = '{{ config('mqtt.ws_url') }}';
@@ -178,12 +365,26 @@ const mqttClient = mqtt.connect(mqttUrl, {
 });
 
 let currentIndex = 0;
-let currentPage = 1;
+let currentPage = brailleData.current_page || 1;
+let currentLineIndex = brailleData.current_line_index || 0;
+let currentLineText = brailleData.current_line_text || '';
+let totalLines = brailleData.total_lines || 1;
+
+// Debug: Log data to console
+console.log('Braille Data:', brailleData);
+console.log('Space unicode from DB:', brailleData.braille_patterns ? brailleData.braille_patterns[' '] : 'Not found');
 
 // MQTT Connection Handlers
 mqttClient.on('connect', function() {
     updateMqttStatus('Terhubung ke MQTT Broker', false);
-    mqttClient.subscribe(mqttTopic);
+    if (mqttTopic) {
+        mqttClient.subscribe(mqttTopic);
+    }
+
+    if (buttonNavigationEnabled && buttonTopic) {
+        mqttClient.subscribe(buttonTopic);
+        console.log('Subscribed to device button topic:', buttonTopic);
+    }
 });
 
 mqttClient.on('error', function(err) {
@@ -192,6 +393,51 @@ mqttClient.on('error', function(err) {
 
 mqttClient.on('offline', function() {
     updateMqttStatus('Koneksi MQTT terputus', true);
+});
+
+mqttClient.on('message', function(topic, message) {
+    const payload = message ? message.toString().trim() : '';
+    console.log('MQTT message received', { topic, payload });
+
+    if (!payload) {
+        return;
+    }
+
+    if (!buttonNavigationEnabled || !buttonTopic) {
+        updateMqttStatus('Payload tombol diterima (navigasi non-aktif): ' + payload, false);
+        return;
+    }
+
+    if (topic !== buttonTopic) {
+        console.log('Payload tidak untuk topik tombol, diabaikan');
+        return;
+    }
+
+    try {
+        updateMqttStatus('Payload tombol diterima: ' + payload, false);
+
+        const actionMap = {
+            '1': 'link-page-prev',
+            '4': 'link-page-next',
+            '2': 'link-line-prev',
+            '5': 'link-line-next',
+            '3': 'link-chunk-prev',
+            '6': 'link-chunk-next'
+        };
+
+        const targetLink = actionMap[payload] ?? null;
+
+        if (targetLink) {
+            const handled = triggerNavigation(targetLink);
+            if (!handled) {
+                console.log('Navigation action ignored for payload:', payload);
+            }
+        } else {
+            console.log('Unknown button payload received:', payload);
+        }
+    } catch (error) {
+        console.error('Failed to handle button payload:', error);
+    }
 });
 
 function updateMqttStatus(message, isError = false) {
@@ -216,136 +462,392 @@ function brailleToDecimal(binary6) {
     return dec1.toString().padStart(1, '0') + dec2.toString().padStart(1, '0');
 }
 
-// Render braille dots
-function renderBrailleDots(binary) {
-    let html = '<div style="display: inline-block;">';
-    for (let row = 0; row < 3; row++) {
-        html += '<div class="braille-dot-row">';
-        const leftIdx = row * 2;
-        const rightIdx = row * 2 + 1;
-        
-        html += binary[leftIdx] === '1' 
-            ? '<div class="braille-dot" role="img" aria-label="Dot filled"></div>'
-            : '<div class="braille-dot-empty"></div>';
-        
-        html += binary[rightIdx] === '1'
-            ? '<div class="braille-dot" role="img" aria-label="Dot filled"></div>'
-            : '<div class="braille-dot-empty"></div>';
-        
-        html += '</div>';
+// Update braille unicode pattern
+function updateBrailleUnicodePattern(character) {
+    const brailleElement = document.getElementById('braille-unicode-pattern');
+    if (!brailleElement) {
+        console.warn('Element with ID "braille-unicode-pattern" not found');
+        return;
     }
-    html += '</div>';
-    return html;
+    
+    const unicodePattern = getBrailleUnicodeForChar(character);
+    // For space, show empty cell instead of space unicode
+    if (character === ' ') {
+        brailleElement.textContent = '⠀'; // Braille blank
+        brailleElement.style.background = '#f9f9f9';
+        brailleElement.style.border = '1px solid #ddd';
+    } else {
+        brailleElement.textContent = unicodePattern;
+        brailleElement.style.background = '';
+        brailleElement.style.border = '';
+    }
+}
+
+// Get braille unicode for character from database
+function getBrailleUnicodeForChar(character) {
+    if (character === ' ') {
+        return '\u2800'; // Braille blank for space
+    }
+
+    if (brailleData.braille_patterns && brailleData.braille_patterns[character]) {
+        return brailleData.braille_patterns[character];
+    }
+    return '\u2800'; // Default to space
+}
+
+function getBrailleBinaryForChar(character) {
+    if (character === ' ') {
+        return '000000';
+    }
+
+    if (brailleData.braille_binary_patterns && brailleData.braille_binary_patterns[character]) {
+        return brailleData.braille_binary_patterns[character];
+    }
+
+    return '000000';
+}
+
+function getBrailleDecimalForChar(character) {
+    if (character === ' ') {
+        return 0;
+    }
+
+    if (brailleData.braille_decimal_patterns && typeof brailleData.braille_decimal_patterns[character] !== 'undefined') {
+        return brailleData.braille_decimal_patterns[character];
+    }
+
+    return 0;
+}
+
+function fetchPageData(pageNumber, lineNumber = 1) {
+    const safePage = Math.max(1, pageNumber);
+    const payload = {
+        page: safePage,
+        line: Math.max(1, lineNumber)
+    };
+
+    return fetch(materialPageUrl, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+            'Accept': 'application/json'
+        },
+        body: JSON.stringify(payload)
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Failed to fetch page data');
+        }
+        return response.json();
+    })
+    .then(result => {
+        if (!result.success || !result.data) {
+            throw new Error(result.error || 'Invalid response');
+        }
+
+        currentPage = result.data.current_page;
+        currentLineIndex = result.data.current_line_index;
+        totalLines = result.data.total_lines;
+        brailleData.lines = result.data.lines;
+        brailleData.total_pages = result.data.total_pages;
+        currentLineText = result.data.current_line_text || '';
+
+        if (result.data.braille_patterns) {
+            brailleData.braille_patterns = result.data.braille_patterns;
+        }
+        if (result.data.braille_binary_patterns) {
+            brailleData.braille_binary_patterns = result.data.braille_binary_patterns;
+        }
+        if (result.data.braille_decimal_patterns) {
+            brailleData.braille_decimal_patterns = result.data.braille_decimal_patterns;
+        }
+
+        currentIndex = 0;
+        updateView();
+    })
+    .catch(error => {
+        console.error('Error fetching page data:', error);
+        updateMqttStatus('Gagal memuat halaman: ' + error.message, true);
+    });
 }
 
 // Update display
 function updateView() {
-    const pageData = brailleData.filter(d => d.halaman == currentPage);
-    if (!pageData.length) return;
+    console.log('updateView called - currentLineText:', currentLineText);
     
-    currentIndex = Math.max(0, Math.min(currentIndex, pageData.length - 1));
-    
-    const current = pageData[currentIndex];
-    
-    // Update braille dots
-    document.getElementById('braille-dots').innerHTML = renderBrailleDots(current.braille);
-    
-    // Update character
-    document.getElementById('braille-character').textContent = current.karakter;
-    
-    // Update page info
-    document.getElementById('page-info').textContent = 
-        `Halaman ${currentPage} • Karakter ${currentIndex + 1} dari ${pageData.length}`;
-    
-    // Update original text with highlighting
-    document.getElementById('original-text').innerHTML = pageData.map((d, i) => {
-        return i === currentIndex 
-            ? `<span class="active-char">${d.karakter}</span>`
-            : d.karakter;
-    }).join(' ');
-    
-    // Send to MQTT
-    if (mqttClient.connected) {
-        try {
-            const decimalValue = brailleToDecimal(current.braille);
-            mqttClient.publish(mqttTopic, decimalValue, { qos: 1 }, function(err) {
-                if (err) {
-                    updateMqttStatus('Gagal mengirim: ' + err.message, true);
-                } else {
-                    updateMqttStatus(`Terkirim: ${current.karakter}`, false);
-                }
-            });
-        } catch (e) {
-            updateMqttStatus('Kesalahan konversi: ' + e.message, true);
+    if (currentLineText && currentLineText.length > 0) {
+        const characters = currentLineText.split('');
+        currentIndex = Math.max(0, Math.min(currentIndex, characters.length - 1));
+        
+        const currentChar = characters[currentIndex];
+        console.log('Current character:', currentChar);
+        console.log('Character code:', currentChar.charCodeAt(0));
+        
+        const brailleUnicode = getBrailleUnicodeForChar(currentChar);
+        console.log('Braille unicode for "' + currentChar + '":', brailleUnicode);
+        const brailleDotsElement = document.getElementById('braille-dots');
+        if (brailleDotsElement) {
+            brailleDotsElement.innerHTML = brailleUnicode;
         }
+
+        const brailleBinary = getBrailleBinaryForChar(currentChar);
+        const brailleDecimal = getBrailleDecimalForChar(currentChar);
+        console.log('Braille binary for "' + currentChar + '":', brailleBinary);
+        console.log('Braille decimal for "' + currentChar + '":', brailleDecimal);
+        
+        const brailleCharElement = document.getElementById('braille-character');
+        if (brailleCharElement) {
+            brailleCharElement.textContent = currentChar;
+        }
+        
+        const pageInfoElement = document.getElementById('page-info');
+        if (pageInfoElement) {
+            pageInfoElement.textContent = 
+                `Halaman ${currentPage} • Baris ${currentLineIndex + 1} dari ${totalLines} • Karakter ${currentIndex + 1} dari ${characters.length}`;
+        }
+        
+        const originalTextElement = document.getElementById('original-text');
+        if (originalTextElement) {
+            originalTextElement.innerHTML = characters.map((char, i) => {
+                return i === currentIndex 
+                    ? `<span class="active-char">${char}</span>`
+                    : char;
+            }).join('');
+        }
+        
+        updateBrailleUnicodePattern(currentChar);
+        
+        if (window.mqttClient && mqttClient.connected) {
+            try {
+                const decimalValue = typeof brailleDecimal !== 'undefined' && brailleDecimal !== null
+                    ? String(brailleDecimal)
+                    : brailleToDecimal(brailleBinary);
+                mqttClient.publish(mqttTopic, decimalValue, { qos: 1 }, function(err) {
+                    if (err) {
+                        updateMqttStatus('Gagal mengirim: ' + err.message, true);
+                    } else {
+                        updateMqttStatus(`Terkirim: ${currentChar}`, false);
+                    }
+                });
+            } catch (e) {
+                updateMqttStatus('Kesalahan konversi: ' + e.message, true);
+            }
+        }
+    } else {
+        console.log('No data available');
+        
+        const brailleDotsElement = document.getElementById('braille-dots');
+        if (brailleDotsElement) {
+            brailleDotsElement.innerHTML = '';
+        }
+        
+        const brailleCharElement = document.getElementById('braille-character');
+        if (brailleCharElement) {
+            brailleCharElement.textContent = '';
+        }
+        
+        const pageInfoElement = document.getElementById('page-info');
+        if (pageInfoElement) {
+            pageInfoElement.textContent = 'Tidak ada data tersedia';
+        }
+        
+        const originalTextElement = document.getElementById('original-text');
+        if (originalTextElement) {
+            originalTextElement.innerHTML = '';
+        }
+        
+        updateBrailleUnicodePattern(' ');
     }
 }
 
 // Text to speech
-function speakCharacter() {
-    const text = document.getElementById('braille-character').textContent;
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = 'id-ID';
-    utterance.rate = 0.9;
-    
-    const voices = window.speechSynthesis.getVoices();
-    const indoVoice = voices.find(v => v.lang === 'id-ID');
-    if (indoVoice) utterance.voice = indoVoice;
-    
-    window.speechSynthesis.cancel();
-    window.speechSynthesis.speak(utterance);
-    
-    document.getElementById('announcements').textContent = 'Membaca: ' + text;
+const speechSupported = 'speechSynthesis' in window && typeof SpeechSynthesisUtterance !== 'undefined';
+let speechStatusElement = null;
+let activeUtterance = null;
+
+function updateSpeechStatus(message) {
+    if (speechStatusElement) {
+        speechStatusElement.textContent = message;
+    }
+    const announceEl = document.getElementById('announcements');
+    if (announceEl) {
+        announceEl.textContent = message;
+    }
+}
+
+function toggleSpeechPlayback() {
+    if (!speechSupported) {
+        updateSpeechStatus('Text to speech tidak didukung di browser ini.');
+        return;
+    }
+
+    const synth = window.speechSynthesis;
+
+    if (synth.speaking || synth.pending || synth.paused) {
+        synth.cancel();
+        updateSpeechStatus('Pengucapan dihentikan.');
+        return;
+    }
+
+    let textToSpeak = (currentLineText || '').trim();
+    if (!textToSpeak) {
+        textToSpeak = (brailleData.current_chunk_text || '').trim();
+    }
+
+    if (!textToSpeak) {
+        updateSpeechStatus('Tidak ada teks untuk dibacakan.');
+        return;
+    }
+
+    activeUtterance = new SpeechSynthesisUtterance(textToSpeak);
+    activeUtterance.lang = 'id-ID';
+    activeUtterance.rate = 0.95;
+
+    const voices = synth.getVoices();
+    const indoVoice = voices.find(v => v.lang && v.lang.startsWith('id'));
+    if (indoVoice) {
+        activeUtterance.voice = indoVoice;
+    }
+
+    activeUtterance.onstart = () => updateSpeechStatus('Membacakan teks...');
+    activeUtterance.onend = () => updateSpeechStatus('Pengucapan selesai.');
+    activeUtterance.onerror = () => updateSpeechStatus('Gagal membacakan teks.');
+
+    synth.cancel();
+    synth.speak(activeUtterance);
+}
+
+function triggerNavigation(linkId) {
+    const element = document.getElementById(linkId);
+
+    if (!element || element.tagName.toLowerCase() !== 'a') {
+        return false;
+    }
+
+    const href = element.getAttribute('href');
+    if (!href || element.classList.contains('disabled')) {
+        return false;
+    }
+
+    element.click();
+    return true;
 }
 
 // Event listeners
 document.addEventListener('DOMContentLoaded', function() {
+    speechStatusElement = document.getElementById('speech-status');
+    if (!speechSupported && speechStatusElement) {
+        speechStatusElement.textContent = 'Browser Anda tidak mendukung text to speech.';
+    }
+
     // Button controls
-    document.getElementById('btn-prev').onclick = function() {
-        currentIndex = Math.max(0, currentIndex - 1);
-        updateView();
-    };
-    
-    document.getElementById('btn-next').onclick = function() {
-        const pageData = brailleData.filter(d => d.halaman == currentPage);
-        currentIndex = Math.min(pageData.length - 1, currentIndex + 1);
-        updateView();
-    };
-    
-    document.getElementById('btn-read').onclick = speakCharacter;
-    
-    document.getElementById('btn-page-prev').onclick = function() {
-        if (currentPage > 1) {
-            currentPage--;
-            currentIndex = 0;
+    const btnPrev = document.getElementById('btn-prev');
+    const btnNext = document.getElementById('btn-next');
+    const btnRead = document.getElementById('btn-read');
+    const btnLinePrev = document.getElementById('btn-line-prev');
+    const btnLineNext = document.getElementById('btn-line-next');
+    const btnPagePrev = document.getElementById('btn-page-prev');
+
+    if (btnPrev) {
+        btnPrev.onclick = function() {
+            if (currentLineText) {
+                const characters = currentLineText.split('');
+                currentIndex = Math.max(0, currentIndex - 1);
+            }
             updateView();
-        }
-    };
+        };
+    }
     
-    document.getElementById('btn-page-next').onclick = function() {
-        const maxPage = Math.max(...brailleData.map(d => d.halaman));
-        if (currentPage < maxPage) {
-            currentPage++;
-            currentIndex = 0;
+    if (btnNext) {
+        btnNext.onclick = function() {
+            if (currentLineText) {
+                const characters = currentLineText.split('');
+                currentIndex = Math.min(characters.length - 1, currentIndex + 1);
+            }
             updateView();
-        }
-    };
+        };
+    }
+
+    if (btnRead) {
+        btnRead.onclick = toggleSpeechPlayback;
+    }
+    
+    // Line navigation
+    if (btnLinePrev) {
+        btnLinePrev.onclick = function() {
+            if (brailleData.lines && currentLineIndex > 0) {
+                currentLineIndex--;
+                currentLineText = brailleData.lines[currentLineIndex] || '';
+                currentIndex = 0; // Reset character index when changing line
+                updateView();
+            }
+        };
+    }
+    
+    if (btnLineNext) {
+        btnLineNext.onclick = function() {
+            if (brailleData.lines && currentLineIndex < totalLines - 1) {
+                currentLineIndex++;
+                currentLineText = brailleData.lines[currentLineIndex] || '';
+                currentIndex = 0; // Reset character index when changing line
+                updateView();
+            }
+        };
+    }
+    
+    if (btnPagePrev) {
+        btnPagePrev.onclick = function() {
+            if (currentPage > 1) {
+                fetchPageData(currentPage - 1);
+            }
+        };
+    }
+
+    const btnPageNext = document.getElementById('btn-page-next');
+    if (btnPageNext) {
+        btnPageNext.onclick = function() {
+            if (currentPage < (brailleData.total_pages || 1)) {
+                fetchPageData(currentPage + 1);
+            }
+        };
+    }
     
     // Keyboard shortcuts
     document.addEventListener('keydown', function(e) {
+        if (['INPUT', 'TEXTAREA', 'SELECT', 'BUTTON'].includes(e.target.tagName) || e.target.isContentEditable) {
+            return;
+        }
+
+        let handled = false;
+
         switch(e.key) {
             case 'ArrowLeft':
-                e.preventDefault();
-                document.getElementById('btn-prev').click();
+                handled = triggerNavigation('link-chunk-prev');
                 break;
             case 'ArrowRight':
-                e.preventDefault();
-                document.getElementById('btn-next').click();
+                handled = triggerNavigation('link-chunk-next');
+                break;
+            case 'ArrowUp':
+                handled = triggerNavigation('link-line-prev');
+                break;
+            case 'ArrowDown':
+                handled = triggerNavigation('link-line-next');
+                break;
+            case 'PageUp':
+                handled = triggerNavigation('link-page-next');
+                break;
+            case 'PageDown':
+                handled = triggerNavigation('link-page-prev');
                 break;
             case ' ':
-                e.preventDefault();
-                speakCharacter();
+                toggleSpeechPlayback();
+                handled = true;
                 break;
+        }
+
+        if (handled) {
+            e.preventDefault();
         }
     });
     
@@ -355,6 +857,12 @@ document.addEventListener('DOMContentLoaded', function() {
     // Initial render
     updateView();
     
+    // Initialize braille unicode pattern
+    if (currentLineText) {
+        const firstChar = currentLineText.charAt(0);
+        updateBrailleUnicodePattern(firstChar);
+    }
+    
     // Announce page load
     setTimeout(() => {
         document.getElementById('announcements').textContent = 
@@ -362,12 +870,132 @@ document.addEventListener('DOMContentLoaded', function() {
     }, 1000);
 });
 
+// Handle complete session form submission
+const completeSessionForm = document.getElementById('complete-session-form');
+if (completeSessionForm) {
+    completeSessionForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const submitButton = this.querySelector('button[type="submit"]');
+        const originalButtonText = submitButton.innerHTML;
+        const formData = new FormData(this);
+        
+        // Disable button and show loading state
+        submitButton.disabled = true;
+        submitButton.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Menyelesaikan...';
+        
+        fetch(this.action, {
+            method: 'POST',
+            headers: {
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+            },
+            body: formData,
+            credentials: 'same-origin'
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.redirect) {
+                window.location.href = data.redirect;
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            submitButton.disabled = false;
+            submitButton.innerHTML = originalButtonText;
+            alert('Terjadi kesalahan saat menyelesaikan sesi. Silakan coba lagi.');
+        });
+    });
+}
+
 // Cleanup on page leave
 window.addEventListener('beforeunload', function() {
     if (mqttClient && mqttClient.connected) {
         mqttClient.end();
     }
 });
+
+const initialChunkText = brailleData.current_chunk_text || '';
+const initialChunkDecimals = Array.isArray(brailleData.current_chunk_decimal_values)
+    ? brailleData.current_chunk_decimal_values
+    : [];
+
+let lastSentSignature = '';
+let isSending = false;
+
+// Function to send chunk decimal values to devices
+async function sendToDevices(chunkText, decimalValues) {
+    const decimals = Array.isArray(decimalValues) ? decimalValues : [];
+    const signature = JSON.stringify({ chunkText, decimals });
+
+    if ((typeof chunkText !== 'string' || chunkText.length === 0) && decimals.length === 0) {
+        return;
+    }
+
+    if (signature === lastSentSignature || isSending) {
+        return;
+    }
+
+    isSending = true;
+    lastSentSignature = signature;
+    
+    try {
+        const response = await fetch(deviceSendUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: JSON.stringify({
+                text: chunkText,
+                chunk_text: chunkText,
+                decimal_values: decimals,
+                device_ids: Array.isArray(selectedDeviceIds) ? selectedDeviceIds : [],
+                device_serials: Array.isArray(selectedDeviceSerials) ? selectedDeviceSerials : []
+            })
+        });
+        
+        const data = await response.json();
+        console.log('Text sent to devices:', data);
+        
+        // Update MQTT status
+        const mqttStatus = document.getElementById('mqtt-status');
+        if (mqttStatus) {
+            mqttStatus.textContent = 'Terkirim ke ' + data.results.length + ' perangkat';
+            mqttStatus.className = 'mt-6 p-3 rounded-lg text-center text-sm font-medium bg-green-100 text-green-800';
+            
+            // Reset status after 3 seconds
+            setTimeout(() => {
+                mqttStatus.textContent = 'Siap mengirim teks ke perangkat';
+                mqttStatus.className = 'mt-6 p-3 rounded-lg text-center text-sm font-medium bg-gray-100 text-gray-700';
+            }, 3000);
+        }
+        
+    } catch (error) {
+        console.error('Failed to send text to devices:', error);
+        
+        // Show error status
+        const mqttStatus = document.getElementById('mqtt-status');
+        if (mqttStatus) {
+            mqttStatus.textContent = 'Gagal mengirim teks ke perangkat';
+            mqttStatus.className = 'mt-6 p-3 rounded-lg text-center text-sm font-medium bg-red-100 text-red-800';
+        }
+    } finally {
+        isSending = false;
+    }
+}
+
+// Initial send of current chunk decimal values
+setTimeout(() => {
+    sendToDevices(initialChunkText, initialChunkDecimals);
+}, 1000);
 </script>
 @endpush
 @endsection

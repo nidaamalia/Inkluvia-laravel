@@ -178,7 +178,7 @@
                                     <i class="fas fa-file-pdf text-primary" style="font-size: 3rem;"></i>
                                 </div>
                                 <p class="text-dark fw-medium mb-2">Drag & Drop file PDF atau klik untuk browse</p>
-                                <p class="text-muted small">Maksimal ukuran file: 10MB</p>
+                                <p class="text-muted small">Maksimal ukuran file: 50MB</p>
                             </div>
                             <input type="file" class="d-none" id="file" name="file" accept=".pdf" required>
                         </div>
@@ -308,9 +308,9 @@ document.addEventListener('DOMContentLoaded', function() {
             return false;
         }
         
-        // Check file size (10MB)
-        if (file.size > 10 * 1024 * 1024) {
-            alert('Ukuran file maksimal 10MB!');
+        // Check file size (50MB)
+        if (file.size > 50 * 1024 * 1024) {
+            alert('Ukuran file maksimal 50MB!');
             clearFile();
             return false;
         }
@@ -389,7 +389,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 <i class="fas fa-file-pdf text-primary" style="font-size: 3rem;"></i>
             </div>
             <p class="text-dark fw-medium mb-2">Drag & Drop file PDF atau klik untuk browse</p>
-            <p class="text-muted small">Maksimal ukuran file: 10MB</p>
+            <p class="text-muted small">Maksimal ukuran file: 50MB</p>
         `;
         
         // Hide JSON preview

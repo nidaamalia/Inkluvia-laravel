@@ -83,11 +83,11 @@
                         <div class="flex items-center text-gray-600 mb-2">
                             <i class="far fa-clock mr-2" aria-hidden="true"></i>
                             <time datetime="{{ $jadwal->waktu_mulai }}">
-                                {{ \Carbon\Carbon::parse($jadwal->waktu_mulai)->format('H:i') }}
+                                {{ $jadwal->waktu_mulai->format('H:i') }}
                             </time>
                             <span class="mx-2">-</span>
                             <time datetime="{{ $jadwal->waktu_selesai }}">
-                                {{ \Carbon\Carbon::parse($jadwal->waktu_selesai)->format('H:i') }}
+                                {{ $jadwal->waktu_selesai->format('H:i') }}
                             </time>
                         </div>
 
@@ -112,8 +112,14 @@
                         @if($jadwal->canStart())
                         <a href="{{ route('user.jadwal-belajar.start', $jadwal) }}" 
                            class="px-4 py-2 bg-primary text-white text-center font-semibold rounded-lg hover:bg-primary-dark transition-colors focus:ring-2 focus:ring-primary focus:ring-offset-2"
-                           aria-label="Mulai sesi {{ $jadwal->judul }}">
-                            Mulai Sesi
+                           aria-label="{{ $jadwal->status === 'sedang_berlangsung' ? 'Lanjutkan sesi' : ($jadwal->status === 'selesai' ? 'Mulai kembali sesi' : 'Mulai sesi') }} {{ $jadwal->judul }}">
+                            @if($jadwal->status === 'sedang_berlangsung')
+                                Lanjutkan
+                            @elseif($jadwal->status === 'selesai')
+                                Mulai Kembali
+                            @else
+                                Mulai Sesi
+                            @endif
                         </a>
 
                         <a href="{{ route('user.jadwal-belajar.edit', $jadwal) }}" 

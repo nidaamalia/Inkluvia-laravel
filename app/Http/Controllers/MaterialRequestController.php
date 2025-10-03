@@ -10,6 +10,19 @@ use Illuminate\Support\Facades\Validator;
 
 class MaterialRequestController extends Controller
 {
+    public function userIndex()
+    {
+        $requests = MaterialRequest::requestedBy(auth()->id())
+            ->with(['material', 'assignee'])
+            ->latest()
+            ->get();
+            
+        return view('user.request-materi', [
+            'requests' => $requests,
+            'statusOptions' => MaterialRequest::getStatusOptions(),
+            'priorityOptions' => MaterialRequest::getPriorityOptions(),
+        ]);
+    }
     public function index(Request $request)
     {
         $query = MaterialRequest::with(['requester', 'assignee', 'material']);

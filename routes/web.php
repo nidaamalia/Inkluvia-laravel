@@ -5,6 +5,8 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\LembagaController;
 use App\Http\Controllers\DeviceController;
+use App\Http\Controllers\UserMaterialController;
+use App\Http\Controllers\PerpustakaanController;
 use App\Http\Controllers\MaterialController;
 use App\Http\Controllers\MaterialRequestController;
 use App\Http\Controllers\JadwalController;
@@ -25,7 +27,11 @@ Route::middleware('guest')->group(function () {
 // Authenticated routes
 Route::middleware('auth')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
+    
+    // Dashboard routes - specific per role
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+    Route::middleware('role:admin')->get('/admin/dashboard', [DashboardController::class, 'adminDashboard'])->name('admin.dashboard');
+    Route::middleware('role:user')->get('/user/dashboard', [DashboardController::class, 'userDashboard'])->name('user.dashboard');
     
     // User routes
     Route::middleware('role:user')->prefix('user')->name('user.')->group(function () {
@@ -38,13 +44,46 @@ Route::middleware('auth')->group(function () {
         Route::get('/jadwal-belajar/{jadwal}/start', [JadwalController::class, 'startSession'])->name('jadwal-belajar.start');
         Route::post('/jadwal-belajar/{jadwal}/send', [JadwalController::class, 'sendToDevices'])->name('jadwal-belajar.send');
         Route::get('/jadwal-belajar/{jadwal}/learn', [JadwalController::class, 'learn'])->name('jadwal-belajar.learn');
+        Route::post('/jadwal-belajar/{jadwal}/complete', [JadwalController::class, 'completeSession'])->name('jadwal-belajar.complete');
+        Route::post('/jadwal-belajar/{jadwal}/navigate', [JadwalController::class, 'navigatePage'])->name('jadwal-belajar.navigate');
+        Route::post('/jadwal-belajar/{jadwal}/material-page', [JadwalController::class, 'getMaterialPage'])->name('jadwal-belajar.material-page');
+        
+        // Device Text Routes
+        Route::prefix('device')->name('device.')->group(function () {
+            Route::post('/send-text', [\App\Http\Controllers\User\DeviceTextController::class, 'sendText'])
+                 ->name('send-text');
+            Route::get('/list', [\App\Http\Controllers\User\DeviceTextController::class, 'listDevices'])
+                 ->name('list');
+        });
         
         Route::get('/request-materi', function () {
             return view('user.request-materi');
         })->name('request-materi');
-        Route::get('/perpustakaan', function () {
-            return view('user.perpustakaan');
-        })->name('perpustakaan');
+        
+        // Materi Saya routes
+        Route::get('/materi-saya', [UserMaterialController::class, 'index'])->name('materi-saya');
+        Route::get('/materi-saya/create', [UserMaterialController::class, 'create'])->name('materi-saya.create');
+        Route::post('/materi-saya', [UserMaterialController::class, 'store'])->name('materi-saya.store');
+        Route::get('/materi-saya/{material}/edit', [UserMaterialController::class, 'edit'])->name('materi-saya.edit');
+        Route::put('/materi-saya/{material}', [UserMaterialController::class, 'update'])->name('materi-saya.update');
+        Route::delete('/materi-saya/{material}', [UserMaterialController::class, 'destroy'])->name('materi-saya.destroy');
+        Route::get('/materi-saya/{material}/preview', [UserMaterialController::class, 'preview'])->name('materi-saya.preview');
+        Route::get('/materi-saya/{material}/download', [UserMaterialController::class, 'download'])->name('materi-saya.download');
+
+        // Perpustakaan routes
+        Route::get('/perpustakaan', [PerpustakaanController::class, 'index'])->name('perpustakaan');
+        Route::get('/materi-tersimpan', [PerpustakaanController::class, 'savedMaterials'])->name('materi-tersimpan');
+        Route::post('/perpustakaan/{material}/toggle-saved', [PerpustakaanController::class, 'toggleSaved'])->name('perpustakaan.toggle-saved');
+        Route::get('/perpustakaan/{material}/preview', [PerpustakaanController::class, 'preview'])->name('perpustakaan.preview');
+        Route::get('/perpustakaan/{material}/preview-page', [PerpustakaanController::class, 'showPreview'])->name('perpustakaan.preview-page');
+        Route::get('/perpustakaan/{material}/send', [PerpustakaanController::class, 'sendToDevice'])->name('perpustakaan.send');
+        Route::get('/perpustakaan/{material}/start', [PerpustakaanController::class, 'startMaterial'])->name('perpustakaan.start');
+        Route::post('/perpustakaan/{material}/send-material', [PerpustakaanController::class, 'sendMaterialToDevices'])->name('perpustakaan.send-material');
+        Route::get('/perpustakaan/{material}/learn', [PerpustakaanController::class, 'learnMaterial'])->name('perpustakaan.learn');
+        Route::post('/perpustakaan/{material}/material-page', [PerpustakaanController::class, 'materialPage'])->name('perpustakaan.material-page');
+        Route::get('/request-materi', [\App\Http\Controllers\MaterialRequestController::class, 'userIndex'])->name('request-materi');
+        Route::get('/perpustakaan', [PerpustakaanController::class, 'index'])->name('perpustakaan');
+        Route::post('/perpustakaan', [PerpustakaanController::class, 'store'])->name('perpustakaan.store');
     });
     
     // Admin routes
@@ -65,23 +104,13 @@ Route::middleware('auth')->group(function () {
         Route::put('/manajemen-lembaga/{lembaga}', [LembagaController::class, 'update'])->name('manajemen-lembaga.update');
         Route::delete('/manajemen-lembaga/{lembaga}', [LembagaController::class, 'destroy'])->name('manajemen-lembaga.destroy');
         
-        // Device Management
-        Route::get('/manajemen-perangkat', [DeviceController::class, 'index'])->name('kelola-perangkat');
-        Route::get('/manajemen-perangkat/create', [DeviceController::class, 'create'])->name('kelola-perangkat.create');
-        Route::post('/manajemen-perangkat', [DeviceController::class, 'store'])->name('kelola-perangkat.store');
-        Route::get('/manajemen-perangkat/{device}/edit', [DeviceController::class, 'edit'])->name('kelola-perangkat.edit');
-        Route::put('/manajemen-perangkat/{device}', [DeviceController::class, 'update'])->name('kelola-perangkat.update');
-        Route::delete('/manajemen-perangkat/{device}', [DeviceController::class, 'destroy'])->name('kelola-perangkat.destroy');
-        Route::post('/manajemen-perangkat/{device}/ping', [DeviceController::class, 'ping'])->name('kelola-perangkat.ping');
-        Route::post('/manajemen-perangkat/{device}/status', [DeviceController::class, 'requestStatus'])->name('kelola-perangkat.status');
-        Route::get('/manajemen-perangkat/users-by-lembaga', [DeviceController::class, 'getUsersByLembaga'])->name('kelola-perangkat.users-by-lembaga');
-
         // Material Management
         Route::get('/manajemen-materi', [MaterialController::class, 'index'])->name('manajemen-materi');
         Route::get('/manajemen-materi/create', [MaterialController::class, 'create'])->name('manajemen-materi.create');
         Route::post('/manajemen-materi', [MaterialController::class, 'store'])->name('manajemen-materi.store');
         Route::get('/manajemen-materi/{material}', [MaterialController::class, 'show'])->name('manajemen-materi.show');
         Route::get('/manajemen-materi/{material}/braille', [MaterialController::class, 'showWithBraille'])->name('manajemen-materi.braille');
+        Route::get('/manajemen-materi/{material}/braille-content', [MaterialController::class, 'getBrailleContent'])->name('manajemen-materi.braille-content');
         Route::get('/manajemen-materi/{material}/edit', [MaterialController::class, 'edit'])->name('manajemen-materi.edit');
         Route::put('/manajemen-materi/{material}', [MaterialController::class, 'update'])->name('manajemen-materi.update');
         Route::delete('/manajemen-materi/{material}', [MaterialController::class, 'destroy'])->name('manajemen-materi.destroy');
@@ -100,7 +129,21 @@ Route::middleware('auth')->group(function () {
         Route::post('/request-materi/{request}/reject', [MaterialRequestController::class, 'reject'])->name('request-materi.reject');
         Route::post('/request-materi/{request}/in-progress', [MaterialRequestController::class, 'markInProgress'])->name('request-materi.in-progress');
         Route::post('/request-materi/{request}/complete', [MaterialRequestController::class, 'complete'])->name('request-materi.complete');
-
+        
+        // Device Management
+        Route::get('/manajemen-perangkat', function () {
+            return view('admin.manajemen-perangkat');
+        })->name('kelola-perangkat');
+        Route::get('/manajemen-perangkat', [DeviceController::class, 'index'])->name('kelola-perangkat');
+        Route::get('/manajemen-perangkat/create', [DeviceController::class, 'create'])->name('kelola-perangkat.create');
+        Route::post('/manajemen-perangkat', [DeviceController::class, 'store'])->name('kelola-perangkat.store');
+        Route::get('/manajemen-perangkat/{device}/edit', [DeviceController::class, 'edit'])->name('kelola-perangkat.edit');
+        Route::put('/manajemen-perangkat/{device}', [DeviceController::class, 'update'])->name('kelola-perangkat.update');
+        Route::delete('/manajemen-perangkat/{device}', [DeviceController::class, 'destroy'])->name('kelola-perangkat.destroy');
+        Route::post('/manajemen-perangkat/{device}/ping', [DeviceController::class, 'ping'])->name('kelola-perangkat.ping');
+        Route::post('/manajemen-perangkat/{device}/status', [DeviceController::class, 'requestStatus'])->name('kelola-perangkat.status');
+        Route::get('/manajemen-perangkat/users-by-lembaga', [DeviceController::class, 'getUsersByLembaga'])->name('kelola-perangkat.users-by-lembaga');
+        
     });
 });
 

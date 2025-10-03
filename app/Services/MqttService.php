@@ -31,12 +31,27 @@ class MqttService
     {
         // Check if MQTT is enabled
         if (!config('mqtt.enabled', true)) {
-            Log::info('MQTT is disabled in configuration');
+            $msg = 'MQTT is disabled in configuration';
+            Log::warning($msg);
+            echo '<script>console.warn("' . $msg . '");</script>';
             return false;
         }
 
+        // If already connected, return true
+        if ($this->mqtt && $this->mqtt->connect) {
+            return true;
+        }
+
         try {
-            $this->mqtt = new phpMQTT($this->server, $this->port, $this->clientId);
+            $this->mqtt = new phpMQTT(
+                $this->server,
+                $this->port,
+                $this->clientId . '_' . uniqid()
+            );
+
+            if (!$this->mqtt) {
+                throw new \Exception('Failed to initialize MQTT client');
+            }
             
             $connected = $this->mqtt->connect(
                 config('mqtt.clean_session', true),
@@ -46,19 +61,21 @@ class MqttService
             );
 
             if ($connected) {
-                Log::info('MQTT connected successfully', [
-                    'server' => $this->server,
-                    'port' => $this->port,
-                    'client_id' => $this->clientId
-                ]);
+                $msg = 'MQTT connected successfully to ' . $this->server . ':' . $this->port;
+                Log::info($msg);
+                echo '<script>console.log("' . $msg . '");</script>';
                 return true;
             }
 
-            Log::error('Failed to connect to MQTT broker');
+            $error = 'Failed to connect to MQTT broker at ' . $this->server . ':' . $this->port;
+            Log::error($error);
+            echo '<script>console.error("' . $error . '");</script>';
             return false;
 
         } catch (\Exception $e) {
-            Log::error('MQTT connection error: ' . $e->getMessage());
+            $error = 'MQTT connection error: ' . $e->getMessage();
+            Log::error($error);
+            echo '<script>console.error("' . addslashes($error) . '");</script>';
             return false;
         }
     }
@@ -69,132 +86,107 @@ class MqttService
     public function publish(string $topic, $message, int $qos = 0): bool
     {
         try {
+            // Ensure we have a connection
             if (!$this->mqtt) {
-                if (!$this->connect()) {
+                $connected = $this->connect();
+                if (!$connected) {
+                    $error = 'Failed to connect to MQTT broker';
+                    Log::error($error);
+                    echo '<script>console.error("' . $error . '");</script>';
                     return false;
                 }
             }
 
-            $payload = is_array($message) ? json_encode($message) : (string)$message;
+            // Convert message to string if it's an array
+            $messageString = is_array($message) ? json_encode($message) : (string)$message;
             
-            $result = $this->mqtt->publish($topic, $payload, $qos);
-            
-            // Ensure we always return a boolean
-            $success = (bool) $result;
-            
-            if ($success) {
-                Log::info('MQTT message published', [
-                    'topic' => $topic,
-                    'message' => $payload,
-                    'qos' => $qos
-                ]);
-            } else {
-                Log::error('Failed to publish MQTT message', [
-                    'topic' => $topic,
-                    'message' => $payload
-                ]);
+            // Log the attempt
+            $logMessage = 'Publishing to ' . $topic . ': ' . $messageString;
+            Log::info($logMessage);
+            echo '<script>console.log("' . addslashes($logMessage) . '");</script>';
+            try {
+                // Publish the message
+                $result = $this->mqtt->publish($topic, $messageString, $qos, 0);
+                
+                if ($result) {
+                    $successMsg = 'Successfully published to ' . $topic;
+                    Log::info($successMsg);
+                    echo '<script>console.log("' . addslashes($successMsg) . '");</script>';
+                    return true;
+                } else {
+                    $errorMsg = 'Failed to publish to ' . $topic . '. Error: ' . json_encode(error_get_last());
+                    Log::error($errorMsg);
+                    echo '<script>console.error("' . addslashes($errorMsg) . '");</script>';
+                    return false;
+                }
+            } catch (\Exception $e) {
+                echo '<script>console.error("MQTT Publish Exception - Topic: ' . $topic . ', Error: ' . $e->getMessage() . '");</script>';
+                error_log('MQTT Publish Exception - Topic: ' . $topic . ', Error: ' . $e->getMessage() . ', Trace: ' . $e->getTraceAsString());
+                
+                if ($this->mqtt) {
+                    $this->mqtt->close();
+                }
+                return false;
             }
-
-            return $success;
-
         } catch (\Exception $e) {
-            Log::error('MQTT publish error: ' . $e->getMessage(), [
-                'topic' => $topic,
-                'message' => is_array($message) ? json_encode($message) : (string)$message,
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
-            ]);
+            Log::error('MQTT Error: ' . $e->getMessage());
             return false;
         }
     }
 
     /**
-     * Subscribe to topic
+     * Resolve topic from configuration and append serial number when provided
      */
-    public function subscribe(string $topic, callable $callback = null, int $qos = 0): bool
+    private function resolveTopic(string $configKey, ?string $serialNumber = null): string
     {
-        try {
-            if (!$this->mqtt) {
-                if (!$this->connect()) {
-                    return false;
-                }
-            }
+        $topics = config('mqtt.topics', []);
+        $baseTopic = $topics[$configKey] ?? config('mqtt.topic', 'mqtt/default');
 
-            $topics = [$topic => ['qos' => $qos, 'function' => $callback]];
-            
-            $this->mqtt->subscribe($topics, 0);
-            
-            Log::info('MQTT subscribed to topic', [
-                'topic' => $topic,
-                'qos' => $qos
-            ]);
-
-            return true;
-
-        } catch (\Exception $e) {
-            Log::error('MQTT subscribe error: ' . $e->getMessage());
-            return false;
+        $baseTopic = rtrim($baseTopic, '/');
+        if ($serialNumber !== null) {
+            $baseTopic .= '/' . trim($serialNumber);
         }
+
+        return $baseTopic;
     }
 
     /**
-     * Send device command
+     * Send command payload to a specific device
      */
-    public function sendDeviceCommand(string $deviceSerial, array $command): bool
+    public function sendDeviceCommand(string $serialNumber, array $commandData): bool
     {
-        $topic = config('mqtt.topics.device_command') . '/' . $deviceSerial;
-        
-        $payload = [
-            'timestamp' => now()->toISOString(),
-            'device_serial' => $deviceSerial,
-            'command' => $command,
-            'source' => 'inkluvia_web'
-        ];
+        $topic = $this->resolveTopic('device_command', $serialNumber);
+
+        $payload = $commandData;
+        $payload['serial_number'] = $serialNumber;
+        $payload['timestamp'] = $payload['timestamp'] ?? now()->toISOString();
 
         return $this->publish($topic, $payload);
     }
 
     /**
-     * Send material to device
+     * Send material payload to a specific device
      */
-    public function sendMaterial(string $deviceSerial, array $materialData): bool
+    public function sendMaterial(string $serialNumber, array $materialData): bool
     {
-        $topic = config('mqtt.topics.material_send') . '/' . $deviceSerial;
-        
-        $payload = [
-            'timestamp' => now()->toISOString(),
-            'device_serial' => $deviceSerial,
-            'material' => $materialData,
-            'source' => 'inkluvia_web'
-        ];
+        $topic = $this->resolveTopic('material_send', $serialNumber);
+
+        $payload = $materialData;
+        $payload['serial_number'] = $serialNumber;
+        $payload['type'] = $payload['type'] ?? 'material_send';
+        $payload['timestamp'] = $payload['timestamp'] ?? now()->toISOString();
 
         return $this->publish($topic, $payload);
     }
 
     /**
-     * Request device status
+     * Send ping command to a device
      */
-    public function requestDeviceStatus(string $deviceSerial): bool
+    public function pingDevice(string $serialNumber): bool
     {
-        $command = [
-            'type' => 'status_request',
-            'timestamp' => now()->toISOString()
-        ];
-
-        return $this->sendDeviceCommand($deviceSerial, $command);
-    }
-
-    /**
-     * Send ping to device
-     */
-    public function pingDevice(string $deviceSerial): bool
-    {
-        $command = [
-            'type' => 'ping',
-            'timestamp' => now()->toISOString()
-        ];
-
-        return $this->sendDeviceCommand($deviceSerial, $command);
+        return $this->sendDeviceCommand($serialNumber, [
+            'type' => 'ping'
+        ]);
     }
 
     /**
@@ -203,11 +195,11 @@ class MqttService
     public function disconnect(): void
     {
         if ($this->mqtt) {
-            $this->mqtt->close();
             Log::info('MQTT disconnected');
         }
     }
 
+    /**
     /**
      * Get connection status
      */
