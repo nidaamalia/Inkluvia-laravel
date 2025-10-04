@@ -4,9 +4,9 @@ namespace App\Http\Controllers;
 
 use App\Models\Material;
 use App\Models\UserSavedMaterial;
-use App\Models\MaterialBrailleContent;
+use App\Models\BraillePattern;
 use App\Services\PdfToJsonService;
-use App\Services\OpenAIBrailleService;
+use App\Services\GeminiPdfProcessorService; 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
@@ -16,27 +16,21 @@ use Illuminate\Support\Facades\Log;
 class UserMaterialController extends Controller
 {
     protected $pdfToJsonService;
-    protected $openAIService;
+    protected $geminiService;
 
     public function __construct()
     {
         $this->pdfToJsonService = new PdfToJsonService();
-        $this->openAIService = new OpenAIBrailleService();
+        $this->geminiService = new GeminiPdfProcessorService(); 
     }
 
-    /**
-     * Display user's materials (both uploaded and saved)
-     */
     public function index(Request $request)
     {
         $user = Auth::user();
         
-        // Get user's uploaded materials and saved materials
         $query = Material::query()
             ->where(function($q) use ($user) {
-                // Materials created by user
                 $q->where('created_by', $user->id)
-                  // OR materials saved by user
                   ->orWhereIn('id', function($subQuery) use ($user) {
                       $subQuery->select('material_id')
                           ->from('user_saved_materials')
@@ -45,7 +39,6 @@ class UserMaterialController extends Controller
             })
             ->with('creator');
 
-        // Search
         if ($request->filled('search')) {
             $search = $request->search;
             $query->where(function($q) use ($search) {
@@ -55,29 +48,24 @@ class UserMaterialController extends Controller
             });
         }
 
-        // Filter kategori
         if ($request->filled('kategori')) {
             $query->where('kategori', $request->kategori);
         }
 
-        // Filter tingkat
         if ($request->filled('tingkat')) {
             $query->where('tingkat', $request->tingkat);
         }
 
-        // Filter status (only for user's own materials)
         if ($request->filled('status')) {
             $query->where('status', $request->status);
         }
 
-        // Sorting
         $sortBy = $request->get('sort', 'updated_at');
         $sortOrder = $request->get('order', 'desc');
         $query->orderBy($sortBy, $sortOrder);
 
         $materials = $query->paginate(12)->withQueryString();
 
-        // Get user's saved material IDs
         $userSavedMaterials = UserSavedMaterial::where('user_id', $user->id)
             ->pluck('material_id')
             ->toArray();
@@ -85,17 +73,11 @@ class UserMaterialController extends Controller
         return view('user.materi-saya.index', compact('materials', 'userSavedMaterials'));
     }
 
-    /**
-     * Show create material form
-     */
     public function create()
     {
         return view('user.materi-saya.create');
     }
 
-    /**
-     * Store new material with AI Braille conversion
-     */
     public function store(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -116,12 +98,10 @@ class UserMaterialController extends Controller
         }
 
         try {
-            // Store PDF file
             $file = $request->file('file');
             $fileName = time() . '_' . $file->getClientOriginalName();
             $filePath = $file->storeAs('materials/pdf', $fileName, 'private');
 
-            // Create material record (status: processing)
             $material = Material::create([
                 'judul' => $request->judul,
                 'deskripsi' => $request->deskripsi,
@@ -133,16 +113,15 @@ class UserMaterialController extends Controller
                 'file_path' => $filePath,
                 'total_halaman' => 0,
                 'status' => 'processing',
-                'akses' => 'public', // User materials are public by default
+                'akses' => 'public',
                 'created_by' => Auth::id(),
                 'user_id' => Auth::id(),
             ]);
 
-            // Trigger conversion process
             $this->processConversion($material);
 
             return redirect()->route('user.materi-saya')
-                ->with('success', 'Materi berhasil diupload! Proses konversi Braille sedang berlangsung.');
+                ->with('success', 'Materi berhasil diupload! Proses konversi sedang berlangsung.');
 
         } catch (\Exception $e) {
             Log::error('Material upload failed: ' . $e->getMessage());
@@ -152,12 +131,8 @@ class UserMaterialController extends Controller
         }
     }
 
-    /**
-     * Show edit form
-     */
     public function edit(Material $material)
     {
-        // Check ownership
         if ($material->created_by !== Auth::id()) {
             abort(403, 'Anda tidak memiliki akses untuk mengedit materi ini');
         }
@@ -165,12 +140,8 @@ class UserMaterialController extends Controller
         return view('user.materi-saya.edit', compact('material'));
     }
 
-    /**
-     * Update material
-     */
     public function update(Request $request, Material $material)
     {
-        // Check ownership
         if ($material->created_by !== Auth::id()) {
             abort(403, 'Anda tidak memiliki akses untuk mengedit materi ini');
         }
@@ -203,22 +174,13 @@ class UserMaterialController extends Controller
                 'tingkat' => $request->tingkat,
             ];
 
-            // Handle new file upload
             if ($request->hasFile('file')) {
-                // Delete old files
                 if ($material->file_path) {
                     Storage::disk('private')->delete($material->file_path);
                 }
                 
-                // Delete old JSON and Braille data
                 $this->pdfToJsonService->deleteMaterialJsonData($material);
-                MaterialBrailleContent::where('material_id', $material->id)->delete();
-                
-                if ($material->braille_data_path) {
-                    Storage::disk('private')->delete($material->braille_data_path);
-                }
 
-                // Store new file
                 $file = $request->file('file');
                 $fileName = time() . '_' . $file->getClientOriginalName();
                 $filePath = $file->storeAs('materials/pdf', $fileName, 'private');
@@ -226,12 +188,10 @@ class UserMaterialController extends Controller
                 $updateData['file_path'] = $filePath;
                 $updateData['status'] = 'processing';
                 $updateData['total_halaman'] = 0;
-                $updateData['braille_data_path'] = null;
             }
 
             $material->update($updateData);
 
-            // Reconvert if new file uploaded
             if ($request->hasFile('file')) {
                 $this->processConversion($material);
             }
@@ -247,33 +207,19 @@ class UserMaterialController extends Controller
         }
     }
 
-    /**
-     * Delete material
-     */
     public function destroy(Material $material)
     {
-        // Check ownership
         if ($material->created_by !== Auth::id()) {
             abort(403, 'Anda tidak memiliki akses untuk menghapus materi ini');
         }
 
         try {
-            // Delete files
             if ($material->file_path) {
                 Storage::disk('private')->delete($material->file_path);
             }
-            
-            if ($material->braille_data_path) {
-                Storage::disk('private')->delete($material->braille_data_path);
-            }
 
-            // Delete JSON data
             $this->pdfToJsonService->deleteMaterialJsonData($material);
             
-            // Delete Braille content
-            MaterialBrailleContent::where('material_id', $material->id)->delete();
-            
-            // Delete saved references
             UserSavedMaterial::where('material_id', $material->id)->delete();
 
             $material->delete();
@@ -288,12 +234,8 @@ class UserMaterialController extends Controller
         }
     }
 
-    /**
-     * Preview material (text and braille)
-     */
     public function preview(Material $material)
     {
-        // Check access
         if ($material->created_by !== Auth::id() && 
             !UserSavedMaterial::where('user_id', Auth::id())
                 ->where('material_id', $material->id)
@@ -302,18 +244,12 @@ class UserMaterialController extends Controller
         }
 
         try {
-            // Get text version (JSON)
             $jsonContent = Storage::disk('private')->get($material->file_path);
             $jsonData = json_decode($jsonContent, true);
 
-            // Get Braille version
-            $brailleData = null;
-            if ($material->braille_data_path && Storage::disk('private')->exists($material->braille_data_path)) {
-                $brailleContent = Storage::disk('private')->get($material->braille_data_path);
-                $brailleData = json_decode($brailleContent, true);
-            }
+            // Generate Braille data on-the-fly
+            $brailleData = $this->generateBrailleDataFromJson($jsonData);
 
-            // Check if material is saved
             $isSaved = UserSavedMaterial::where('user_id', Auth::id())
                 ->where('material_id', $material->id)
                 ->exists();
@@ -329,12 +265,8 @@ class UserMaterialController extends Controller
         }
     }
 
-    /**
-     * Download material JSON
-     */
     public function download(Material $material)
     {
-        // Check access
         if ($material->created_by !== Auth::id() && 
             !UserSavedMaterial::where('user_id', Auth::id())
                 ->where('material_id', $material->id)
@@ -355,63 +287,58 @@ class UserMaterialController extends Controller
     }
 
     /**
-     * Process PDF to JSON and Braille conversion with AI
+     * Process PDF to JSON conversion with Gemini AI
      */
     private function processConversion(Material $material)
     {
         try {
             $pdfPath = Storage::disk('private')->path($material->file_path);
 
-            // Step 1: Convert PDF to JSON
             $options = [
                 'judul' => $material->judul,
                 'penerbit' => $material->penerbit,
                 'tahun' => $material->tahun_terbit,
-                'edisi' => $material->edisi
+                'edisi' => $material->edisi,
+                'caption_images' => true,
+                'ocr_images' => true,
+                'use_full_analysis' => true  // PENTING: Gunakan full PDF analysis untuk presentasi
             ];
 
-            $jsonData = $this->pdfToJsonService->convertPdfToJson($pdfPath, $options);
+            Log::info("Starting Gemini-enhanced PDF conversion for material {$material->id}");
+            
+            // COBA GEMINI dengan full analysis mode
+            $jsonData = $this->geminiService->processPdfWithGemini($pdfPath, $options);
+
+            // FALLBACK ke standard jika Gemini gagal
+            if (!$jsonData) {
+                Log::warning("Gemini processing failed, falling back to standard conversion");
+                $jsonData = $this->pdfToJsonService->convertPdfToJson($pdfPath, $options);
+            }
 
             if (!$jsonData) {
                 throw new \Exception('PDF to JSON conversion failed');
             }
 
-            // Save JSON data
             $jsonPath = 'materials/json/' . $material->id . '.json';
-            Storage::disk('private')->put($jsonPath, json_encode($jsonData, JSON_PRETTY_PRINT));
+            Storage::disk('private')->put(
+                $jsonPath, 
+                json_encode($jsonData, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE)
+            );
 
-            // Delete original PDF
+            // Hapus PDF original
             $originalPdfPath = $material->file_path;
             if (Storage::disk('private')->exists($originalPdfPath)) {
                 Storage::disk('private')->delete($originalPdfPath);
             }
 
-            // Update material with JSON path
             $material->update([
                 'file_path' => $jsonPath,
                 'total_halaman' => count($jsonData['pages'] ?? []),
-                'status' => 'processing'
-            ]);
-
-            // Step 2: Convert to Braille using OpenAI
-            Log::info("Starting AI Braille conversion for material {$material->id}");
-            
-            $brailleData = $this->openAIService->convertJsonToBraille($jsonData);
-
-            // Save Braille data to database
-            $this->saveBrailleToDatabase($material, $brailleData);
-
-            // Save Braille data to file
-            $braillePath = 'materials/braille/' . $material->id . '_braille.json';
-            Storage::disk('private')->put($braillePath, json_encode($brailleData, JSON_PRETTY_PRINT));
-
-            // Update material status
-            $material->update([
-                'braille_data_path' => $braillePath,
                 'status' => 'published'
             ]);
 
-            Log::info("AI Braille conversion completed for material {$material->id}");
+            $method = $jsonData['processing_method'] ?? 'standard';
+            Log::info("PDF conversion completed for material {$material->id}. Method: {$method}");
 
         } catch (\Exception $e) {
             Log::error("Conversion failed for material {$material->id}: " . $e->getMessage());
@@ -419,42 +346,97 @@ class UserMaterialController extends Controller
         }
     }
 
-    /**
-     * Save Braille data to database
-     */
-    private function saveBrailleToDatabase(Material $material, $brailleData)
+    // Method lainnya tetap sama...
+    private function convertTextToBrailleUnicode(string $text): string
     {
-        if (isset($brailleData['pages']) && is_array($brailleData['pages'])) {
-            foreach ($brailleData['pages'] as $page) {
-                $brailleText = '';
-                $originalText = '';
-                $lineCount = 0;
-                $characterCount = 0;
+        if (empty($text)) return '';
 
-                if (isset($page['lines']) && is_array($page['lines'])) {
-                    foreach ($page['lines'] as $line) {
-                        $brailleText .= ($line['text'] ?? '') . "\n";
-                        $originalText .= ($line['original'] ?? '') . "\n";
-                        $characterCount += mb_strlen($line['text'] ?? '');
-                    }
-                    $lineCount = count($page['lines']);
-                }
-
-                MaterialBrailleContent::create([
-                    'material_id' => $material->id,
-                    'page_number' => $page['page'] ?? 1,
-                    'braille_text' => trim($brailleText),
-                    'original_text' => trim($originalText),
-                    'metadata' => [
-                        'judul' => $brailleData['judul'] ?? '',
-                        'penerbit' => $brailleData['penerbit'] ?? '',
-                        'tahun' => $brailleData['tahun'] ?? '',
-                        'edisi' => $brailleData['edisi'] ?? ''
-                    ],
-                    'line_count' => $lineCount,
-                    'character_count' => $characterCount
-                ]);
+        $result = '';
+        $length = mb_strlen($text, 'UTF-8');
+        
+        for ($i = 0; $i < $length; $i++) {
+            $char = mb_substr($text, $i, 1, 'UTF-8');
+            
+            if ($char === ' ') {
+                $result .= '⠀';
+                continue;
+            }
+            
+            $pattern = BraillePattern::getByCharacter($char);
+            if ($pattern) {
+                $result .= $pattern->braille_unicode;
+            } else {
+                $result .= '⠀';
             }
         }
+
+        return $result;
+    }
+
+    private function convertTextToDecimalValues(string $text): array
+    {
+        if (empty($text)) return [];
+
+        $values = [];
+        $length = mb_strlen($text, 'UTF-8');
+        
+        for ($i = 0; $i < $length; $i++) {
+            $char = mb_substr($text, $i, 1, 'UTF-8');
+            
+            if ($char === ' ') {
+                $values[] = '00';
+                continue;
+            }
+            
+            $pattern = BraillePattern::getByCharacter($char);
+            if ($pattern) {
+                $values[] = str_pad((string)$pattern->dots_decimal, 2, '0', STR_PAD_LEFT);
+            } else {
+                $values[] = '00';
+            }
+        }
+
+        return $values;
+    }
+
+    private function generateBrailleDataFromJson($jsonData)
+    {
+        if (!$jsonData || !isset($jsonData['pages'])) {
+            return null;
+        }
+
+        $brailleData = [
+            'judul' => $this->convertTextToBrailleUnicode($jsonData['judul'] ?? ''),
+            'penerbit' => $this->convertTextToBrailleUnicode($jsonData['penerbit'] ?? ''),
+            'tahun' => $this->convertTextToBrailleUnicode((string)($jsonData['tahun'] ?? '')),
+            'edisi' => $this->convertTextToBrailleUnicode($jsonData['edisi'] ?? ''),
+            'pages' => []
+        ];
+
+        foreach ($jsonData['pages'] as $pageData) {
+            $braillePage = [
+                'page' => $pageData['page'] ?? 1,
+                'lines' => []
+            ];
+
+            if (isset($pageData['lines']) && is_array($pageData['lines'])) {
+                foreach ($pageData['lines'] as $line) {
+                    if (isset($line['text']) && !empty(trim($line['text']))) {
+                        $originalText = trim($line['text']);
+                        
+                        $braillePage['lines'][] = [
+                            'line' => $line['line'] ?? count($braillePage['lines']) + 1,
+                            'text' => $this->convertTextToBrailleUnicode($originalText),
+                            'original' => $originalText,
+                            'decimal_values' => $this->convertTextToDecimalValues($originalText)
+                        ];
+                    }
+                }
+            }
+
+            $brailleData['pages'][] = $braillePage;
+        }
+
+        return $brailleData;
     }
 }

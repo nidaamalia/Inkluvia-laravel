@@ -8,8 +8,8 @@ use App\Http\Controllers\DeviceController;
 use App\Http\Controllers\UserMaterialController;
 use App\Http\Controllers\PerpustakaanController;
 use App\Http\Controllers\MaterialController;
-use App\Http\Controllers\MaterialRequestController;
 use App\Http\Controllers\JadwalController;
+use App\Http\Controllers\PengaturanController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -28,7 +28,7 @@ Route::middleware('guest')->group(function () {
 Route::middleware('auth')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
     
-    // Dashboard routes - specific per role
+    // Dashboard routes
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::middleware('role:admin')->get('/admin/dashboard', [DashboardController::class, 'adminDashboard'])->name('admin.dashboard');
     Route::middleware('role:user')->get('/user/dashboard', [DashboardController::class, 'userDashboard'])->name('user.dashboard');
@@ -56,10 +56,6 @@ Route::middleware('auth')->group(function () {
                  ->name('list');
         });
         
-        Route::get('/request-materi', function () {
-            return view('user.request-materi');
-        })->name('request-materi');
-        
         // Materi Saya routes
         Route::get('/materi-saya', [UserMaterialController::class, 'index'])->name('materi-saya');
         Route::get('/materi-saya/create', [UserMaterialController::class, 'create'])->name('materi-saya.create');
@@ -81,7 +77,6 @@ Route::middleware('auth')->group(function () {
         Route::post('/perpustakaan/{material}/send-material', [PerpustakaanController::class, 'sendMaterialToDevices'])->name('perpustakaan.send-material');
         Route::get('/perpustakaan/{material}/learn', [PerpustakaanController::class, 'learnMaterial'])->name('perpustakaan.learn');
         Route::post('/perpustakaan/{material}/material-page', [PerpustakaanController::class, 'materialPage'])->name('perpustakaan.material-page');
-        Route::get('/request-materi', [\App\Http\Controllers\MaterialRequestController::class, 'userIndex'])->name('request-materi');
         Route::get('/perpustakaan', [PerpustakaanController::class, 'index'])->name('perpustakaan');
         Route::post('/perpustakaan', [PerpustakaanController::class, 'store'])->name('perpustakaan.store');
     });
@@ -121,19 +116,7 @@ Route::middleware('auth')->group(function () {
         Route::post('/manajemen-materi/preview-conversion', [MaterialController::class, 'previewConversion'])->name('manajemen-materi.preview-conversion');
         Route::get('/manajemen-materi/test-conversion', [MaterialController::class, 'testConversion'])->name('manajemen-materi.test-conversion');
         
-        // Material Request Management
-        Route::get('/request-materi', [MaterialRequestController::class, 'index'])->name('request-materi');
-        Route::get('/request-materi/statistics', [MaterialRequestController::class, 'statistics'])->name('request-materi.statistics');
-        Route::get('/request-materi/{request}', [MaterialRequestController::class, 'show'])->name('request-materi.show');
-        Route::post('/request-materi/{request}/approve', [MaterialRequestController::class, 'approve'])->name('request-materi.approve');
-        Route::post('/request-materi/{request}/reject', [MaterialRequestController::class, 'reject'])->name('request-materi.reject');
-        Route::post('/request-materi/{request}/in-progress', [MaterialRequestController::class, 'markInProgress'])->name('request-materi.in-progress');
-        Route::post('/request-materi/{request}/complete', [MaterialRequestController::class, 'complete'])->name('request-materi.complete');
-        
         // Device Management
-        Route::get('/manajemen-perangkat', function () {
-            return view('admin.manajemen-perangkat');
-        })->name('kelola-perangkat');
         Route::get('/manajemen-perangkat', [DeviceController::class, 'index'])->name('kelola-perangkat');
         Route::get('/manajemen-perangkat/create', [DeviceController::class, 'create'])->name('kelola-perangkat.create');
         Route::post('/manajemen-perangkat', [DeviceController::class, 'store'])->name('kelola-perangkat.store');
@@ -144,6 +127,10 @@ Route::middleware('auth')->group(function () {
         Route::post('/manajemen-perangkat/{device}/status', [DeviceController::class, 'requestStatus'])->name('kelola-perangkat.status');
         Route::get('/manajemen-perangkat/users-by-lembaga', [DeviceController::class, 'getUsersByLembaga'])->name('kelola-perangkat.users-by-lembaga');
         
+        // Settings
+        Route::get('/pengaturan', [PengaturanController::class, 'index'])->name('pengaturan');
+        Route::put('/pengaturan/profile', [PengaturanController::class, 'updateProfile'])->name('pengaturan.update-profile');
+        Route::put('/pengaturan/password', [PengaturanController::class, 'updatePassword'])->name('pengaturan.update-password');
     });
 });
 

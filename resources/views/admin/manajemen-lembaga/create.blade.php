@@ -1,122 +1,67 @@
 @extends('layouts.admin')
 
-@section('title', 'Tambah Lembaga')
+@section('title', 'Tambah Lembaga Baru')
 
 @section('content')
-<div class="page-header">
-    <div style="display: flex; align-items: center; margin-bottom: 2rem;">
-        <a href="{{ route('admin.manajemen-lembaga') }}" class="btn btn-secondary" style="margin-right: 1rem;">
-            <i class="fas fa-arrow-left"></i> Kembali
+<div class="w-full px-6">
+    <div class="flex justify-between items-center mb-6">
+        <a href="{{ route('admin.manajemen-lembaga') }}" 
+           class="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg">
+            ← Kembali
         </a>
-        <div>
-            <h1 class="page-title">Tambah Lembaga Baru</h1>
-            <p class="page-subtitle">Tambahkan lembaga baru ke sistem Inkluvia</p>
-        </div>
+        <h1 class="text-2xl font-bold">Tambah Lembaga Baru</h1>
     </div>
-</div>
 
-<div class="card" style="max-width: 800px;">
-    <form method="POST" action="{{ route('admin.manajemen-lembaga.store') }}">
+    <form action="{{ route('admin.manajemen-lembaga') }}" method="POST" class="bg-white shadow-md rounded-xl p-6 w-full">
         @csrf
-        
-        <div class="form-group">
-            <label for="nama" class="form-label">Nama Lembaga <span style="color: var(--danger);">*</span></label>
-            <input type="text" id="nama" name="nama" class="form-input" 
-                   value="{{ old('nama') }}" required 
-                   placeholder="Masukkan nama lembaga">
-        </div>
-        
-        <div class="form-group">
-            <label for="type" class="form-label">Type Lembaga <span style="color: var(--danger);">*</span></label>
-            <input type="text" id="type" name="type" class="form-input" 
-                   value="{{ old('type') }}" required 
-                   placeholder="Contoh: Sekolah, Universitas, Yayasan, dll"
-                   list="type-suggestions">
-            <datalist id="type-suggestions">
-                <option value="Sekolah Dasar">
-                <option value="Sekolah Menengah Pertama">
-                <option value="Sekolah Menengah Atas">
-                <option value="Universitas">
-                <option value="Institut">
-                <option value="Akademi">
-                <option value="Yayasan">
-                <option value="Panti Sosial">
-                <option value="Rumah Sakit">
-                <option value="Klinik">
-                <option value="Pusat Rehabilitasi">
-                <option value="Organisasi Non-Profit">
-            </datalist>
-        </div>
-        
-        <div class="form-group">
-            <label for="alamat" class="form-label">Alamat <span style="color: var(--danger);">*</span></label>
-            <textarea id="alamat" name="alamat" class="form-input" rows="4" 
-                      required placeholder="Masukkan alamat lengkap lembaga">{{ old('alamat') }}</textarea>
-        </div>
-        
-        <!-- Preview Card -->
-        <div style="background: var(--gray-50); padding: 1.5rem; border-radius: 8px; margin-bottom: 2rem; border: 1px solid var(--border-color);">
-            <h4 style="margin-bottom: 1rem; color: var(--text-dark); display: flex; align-items: center;">
-                <i class="fas fa-eye" style="margin-right: 0.5rem;"></i>
-                Preview Lembaga
-            </h4>
-            <div style="background: white; padding: 1rem; border-radius: 8px; border: 1px solid var(--border-color);">
-                <div style="display: flex; align-items: center;">
-                    <div style="
-                        width: 40px; 
-                        height: 40px; 
-                        border-radius: 8px; 
-                        background: linear-gradient(135deg, var(--primary-color), var(--secondary-color)); 
-                        color: white; 
-                        display: flex; 
-                        align-items: center; 
-                        justify-content: center; 
-                        font-weight: 600; 
-                        margin-right: 0.75rem;
-                    ">
-                        <i class="fas fa-building"></i>
-                    </div>
-                    <div>
-                        <div style="font-weight: 600;" id="preview-nama">Nama Lembaga</div>
-                        <div style="font-size: 0.875rem; color: var(--text-light);">
-                            <span class="badge badge-primary" id="preview-type">Type</span>
-                        </div>
-                        <div style="font-size: 0.875rem; color: var(--text-light); margin-top: 0.25rem;" id="preview-alamat">Alamat lembaga</div>
-                    </div>
-                </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            
+            <!-- Nama Lembaga -->
+            <div class="col-span-2">
+                <label class="block text-gray-700 font-medium mb-2">Nama Lembaga *</label>
+                <input type="text" name="nama" 
+                       placeholder="Masukkan nama lembaga"
+                       class="w-full px-4 py-2 border rounded-lg focus:ring focus:ring-purple-300">
+            </div>
+
+            <!-- Type Lembaga -->
+            <div>
+                <label class="block text-gray-700 font-medium mb-2">Type Lembaga *</label>
+                <select name="type" 
+                        class="w-full px-4 py-2 border rounded-lg bg-white shadow-sm focus:ring focus:ring-purple-300">
+                    <option disabled selected>Pilih Type Lembaga</option>
+                    <option value="Sekolah">Sekolah</option>
+                    <option value="Lembaga">Lembaga</option>
+                    <option value="Individu">Individu</option>
+                </select>
+            </div>
+
+            <!-- Alamat -->
+            <div class="col-span-2">
+                <label class="block text-gray-700 font-medium mb-2">Alamat *</label>
+                <textarea name="alamat" rows="3"
+                          placeholder="Masukkan alamat lembaga"
+                          class="w-full px-4 py-2 border rounded-lg focus:ring focus:ring-purple-300"></textarea>
+            </div>
+
+            <!-- Deskripsi -->
+            <div class="col-span-2">
+                <label class="block text-gray-700 font-medium mb-2">Deskripsi (Opsional)</label>
+                <textarea name="deskripsi" rows="3"
+                          placeholder="Tuliskan deskripsi lembaga"
+                          class="w-full px-4 py-2 border rounded-lg focus:ring focus:ring-purple-300"></textarea>
             </div>
         </div>
-        
-        <div style="border-top: 1px solid var(--border-color); padding-top: 2rem; display: flex; gap: 1rem; justify-content: flex-end;">
-            <a href="{{ route('admin.manajemen-lembaga') }}" class="btn btn-secondary">
-                <i class="fas fa-times"></i> Batal
-            </a>
-            <button type="submit" class="btn btn-primary">
-                <i class="fas fa-save"></i> Simpan Lembaga
+
+        <!-- Tombol Aksi -->
+        <div class="flex justify-end mt-6 space-x-3">
+            <a href="{{ route('admin.manajemen-lembaga') }}" 
+               class="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg">Batal</a>
+            <button type="submit" 
+                    class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700">
+                Simpan Lembaga
             </button>
         </div>
     </form>
 </div>
-
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    const namaInput = document.getElementById('nama');
-    const typeInput = document.getElementById('type');
-    const alamatInput = document.getElementById('alamat');
-    
-    const previewNama = document.getElementById('preview-nama');
-    const previewType = document.getElementById('preview-type');
-    const previewAlamat = document.getElementById('preview-alamat');
-    
-    function updatePreview() {
-        previewNama.textContent = namaInput.value || 'Nama Lembaga';
-        previewType.textContent = typeInput.value || 'Type';
-        previewAlamat.textContent = alamatInput.value || 'Alamat lembaga';
-    }
-    
-    namaInput.addEventListener('input', updatePreview);
-    typeInput.addEventListener('input', updatePreview);
-    alamatInput.addEventListener('input', updatePreview);
-});
-</script>
 @endsection

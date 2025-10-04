@@ -7,212 +7,232 @@
 @endpush
 
 @section('content')
-<div class="container-fluid">
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
     <!-- Header with back button -->
-    <div class="d-flex align-items-center mb-4">
-        <a href="{{ route('admin.manajemen-materi') }}" class="text-decoration-none me-3">
-            <i class="fas fa-arrow-left text-primary" style="font-size: 1.2rem;"></i>
+    <div class="flex items-center gap-3 mb-6">
+        <a href="{{ route('admin.manajemen-materi') }}" class="text-primary hover:text-primary-dark transition-colors">
+            <i class="fas fa-arrow-left text-xl"></i>
         </a>
-        <h1 class="h4 mb-0 text-dark fw-bold">Upload Materi Pembelajaran</h1>
+        <h1 class="text-2xl sm:text-3xl font-bold text-gray-900">Upload Materi Pembelajaran</h1>
     </div>
 
     <!-- Form Card -->
-    <div class="card shadow-sm border-0" style="border-radius: 12px;">
-        <div class="card-body p-4">
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200">
+        <div class="p-4 sm:p-6 lg:p-8">
             <form action="{{ route('admin.manajemen-materi.store') }}" method="POST" enctype="multipart/form-data" id="uploadForm">
                 @csrf
                 
                 <!-- Mandatory Fields Section -->
-                <div class="mb-4">
-                    <h5 class="text-dark fw-bold mb-3">Informasi Materi</h5>
+                <div class="mb-8">
+                    <h5 class="text-lg font-bold text-gray-900 mb-4">Informasi Materi</h5>
                     
-                    <!-- Judul Materi (Mandatory) -->
-                    <div class="form-group mb-4">
-                        <label for="judul" class="form-label fw-bold text-dark">Judul Materi <span class="text-danger">*</span></label>
-                        <input type="text" class="form-control @error('judul') is-invalid @enderror" 
-                               id="judul" name="judul" value="{{ old('judul') }}" 
-                               placeholder="Masukkan judul materi pembelajaran" required
-                               style="border: 1px solid #8B5CF6; border-radius: 8px; padding: 12px;">
+                    <!-- Judul Materi -->
+                    <div class="mb-6">
+                        <label for="judul" class="block text-sm font-semibold text-gray-900 mb-2">
+                            Judul Materi <span class="text-red-500">*</span>
+                        </label>
+                        <input type="text" 
+                               class="w-full px-4 py-3 border-2 border-primary rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all @error('judul') border-red-500 @enderror" 
+                               id="judul" 
+                               name="judul" 
+                               value="{{ old('judul') }}" 
+                               placeholder="Masukkan judul materi pembelajaran" 
+                               required>
                         @error('judul')
-                            <div class="invalid-feedback">{{ $message }}</div>
+                            <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
                         @enderror
                     </div>
 
-                    <!-- Tingkat Pembelajaran (Mandatory) -->
-                    <div class="form-group mb-4">
-                        <label for="tingkat" class="form-label fw-bold text-dark">Tingkat Pembelajaran <span class="text-danger">*</span></label>
-                        <div class="position-relative">
-                            <select class="form-control @error('tingkat') is-invalid @enderror" 
-                                    id="tingkat" name="tingkat" required
-                                    style="border: 1px solid #8B5CF6; border-radius: 8px; padding: 12px; appearance: none; background-image: url('data:image/svg+xml;charset=UTF-8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="%238B5CF6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6,9 12,15 18,9"></polyline></svg>'); background-repeat: no-repeat; background-position: right 12px center; background-size: 16px;">
-                                <option value="">Pilih Tingkat</option>
-                                @foreach(\App\Models\Material::getTingkatOptions() as $key => $value)
-                                    <option value="{{ $key }}" {{ old('tingkat') == $key ? 'selected' : '' }}>
-                                        {{ $value }}
-                                    </option>
-                                @endforeach
-                            </select>
-                            @error('tingkat')
-                                <div class="invalid-feedback">{{ $message }}</div>
-                            @enderror
-                        </div>
+                    <!-- Tingkat Pembelajaran -->
+                    <div class="mb-6">
+                        <label for="tingkat" class="block text-sm font-semibold text-gray-900 mb-2">
+                            Tingkat Pembelajaran <span class="text-red-500">*</span>
+                        </label>
+                        <select class="w-full px-4 py-3 border-2 border-primary rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all appearance-none bg-white @error('tingkat') border-red-500 @enderror" 
+                                id="tingkat" 
+                                name="tingkat" 
+                                required
+                                style="background-image: url('data:image/svg+xml;charset=UTF-8,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%238B5CF6%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22><polyline points=%226,9 12,15 18,9%22></polyline></svg>'); background-repeat: no-repeat; background-position: right 12px center; background-size: 16px;">
+                            <option value="">Pilih Tingkat</option>
+                            @foreach(\App\Models\Material::getTingkatOptions() as $key => $value)
+                                <option value="{{ $key }}" {{ old('tingkat') == $key ? 'selected' : '' }}>
+                                    {{ $value }}
+                                </option>
+                            @endforeach
+                        </select>
+                        @error('tingkat')
+                            <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
+                        @enderror
                     </div>
 
-                    <!-- Pengaturan Hak Akses (Mandatory) -->
-                    <div class="form-group mb-4">
-                        <label for="akses" class="form-label fw-bold text-dark">Pengaturan Hak Akses <span class="text-danger">*</span></label>
-                        <div class="position-relative">
-                            <select class="form-control @error('akses') is-invalid @enderror" 
-                                    id="akses" name="akses" required
-                                    style="border: 1px solid #8B5CF6; border-radius: 8px; padding: 12px; appearance: none; background-image: url('data:image/svg+xml;charset=UTF-8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="%238B5CF6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6,9 12,15 18,9"></polyline></svg>'); background-repeat: no-repeat; background-position: right 12px center; background-size: 16px;">
-                                <option value="">Pilih Hak Akses</option>
-                                @foreach(\App\Models\Material::getAksesOptions() as $key => $value)
-                                    <option value="{{ $key }}" {{ old('akses') == $key ? 'selected' : '' }}>
-                                        {{ $value }}
-                                    </option>
-                                @endforeach
-                            </select>
-                            @error('akses')
-                                <div class="invalid-feedback">{{ $message }}</div>
-                            @enderror
-                        </div>
+                    <!-- Pengaturan Hak Akses -->
+                    <div class="mb-6">
+                        <label for="akses" class="block text-sm font-semibold text-gray-900 mb-2">
+                            Pengaturan Hak Akses <span class="text-red-500">*</span>
+                        </label>
+                        <select class="w-full px-4 py-3 border-2 border-primary rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all appearance-none bg-white @error('akses') border-red-500 @enderror" 
+                                id="akses" 
+                                name="akses" 
+                                required
+                                style="background-image: url('data:image/svg+xml;charset=UTF-8,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%238B5CF6%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22><polyline points=%226,9 12,15 18,9%22></polyline></svg>'); background-repeat: no-repeat; background-position: right 12px center; background-size: 16px;">
+                            <option value="">Pilih Hak Akses</option>
+                            @foreach(\App\Models\Material::getAksesOptions() as $key => $value)
+                                <option value="{{ $key }}" {{ old('akses') == $key ? 'selected' : '' }}>
+                                    {{ $value }}
+                                </option>
+                            @endforeach
+                        </select>
+                        @error('akses')
+                            <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
+                        @enderror
                     </div>
                 </div>
 
                 <!-- Optional Fields Section -->
-                <div class="mb-4">
-                    <h5 class="text-dark fw-bold mb-3">Informasi Tambahan (Opsional)</h5>
+                <div class="mb-8">
+                    <h5 class="text-lg font-bold text-gray-900 mb-4">Informasi Tambahan (Opsional)</h5>
                     
-                    <div class="row">
-                        <!-- Tahun Terbit (Optional) -->
-                        <div class="col-md-6">
-                            <div class="form-group mb-4">
-                                <label for="tahun_terbit" class="form-label fw-bold text-dark">Tahun Terbit</label>
-                                <input type="number" class="form-control @error('tahun_terbit') is-invalid @enderror" 
-                                       id="tahun_terbit" name="tahun_terbit" value="{{ old('tahun_terbit') }}" 
-                                       placeholder="Contoh: 2024" min="1900" max="{{ date('Y') }}"
-                                       style="border: 1px solid #8B5CF6; border-radius: 8px; padding: 12px;">
-                                @error('tahun_terbit')
-                                    <div class="invalid-feedback">{{ $message }}</div>
-                                @enderror
-                            </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <!-- Tahun Terbit -->
+                        <div>
+                            <label for="tahun_terbit" class="block text-sm font-semibold text-gray-900 mb-2">
+                                Tahun Terbit
+                            </label>
+                            <input type="number" 
+                                   class="w-full px-4 py-3 border-2 border-primary rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all @error('tahun_terbit') border-red-500 @enderror" 
+                                   id="tahun_terbit" 
+                                   name="tahun_terbit" 
+                                   value="{{ old('tahun_terbit') }}" 
+                                   placeholder="Contoh: 2024" 
+                                   min="1900" 
+                                   max="{{ date('Y') }}">
+                            @error('tahun_terbit')
+                                <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
+                            @enderror
                         </div>
 
-                        <!-- Penerbit (Optional) -->
-                        <div class="col-md-6">
-                            <div class="form-group mb-4">
-                                <label for="penerbit" class="form-label fw-bold text-dark">Penerbit</label>
-                                <input type="text" class="form-control @error('penerbit') is-invalid @enderror" 
-                                       id="penerbit" name="penerbit" value="{{ old('penerbit') }}" 
-                                       placeholder="Nama penerbit"
-                                       style="border: 1px solid #8B5CF6; border-radius: 8px; padding: 12px;">
-                                @error('penerbit')
-                                    <div class="invalid-feedback">{{ $message }}</div>
-                                @enderror
-                            </div>
+                        <!-- Penerbit -->
+                        <div>
+                            <label for="penerbit" class="block text-sm font-semibold text-gray-900 mb-2">
+                                Penerbit
+                            </label>
+                            <input type="text" 
+                                   class="w-full px-4 py-3 border-2 border-primary rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all @error('penerbit') border-red-500 @enderror" 
+                                   id="penerbit" 
+                                   name="penerbit" 
+                                   value="{{ old('penerbit') }}" 
+                                   placeholder="Nama penerbit">
+                            @error('penerbit')
+                                <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
+                            @enderror
+                        </div>
+
+                        <!-- Edisi -->
+                        <div>
+                            <label for="edisi" class="block text-sm font-semibold text-gray-900 mb-2">
+                                Edisi
+                            </label>
+                            <input type="text" 
+                                   class="w-full px-4 py-3 border-2 border-primary rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all @error('edisi') border-red-500 @enderror" 
+                                   id="edisi" 
+                                   name="edisi" 
+                                   value="{{ old('edisi') }}" 
+                                   placeholder="Contoh: Edisi 1, Cetakan 2">
+                            @error('edisi')
+                                <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
+                            @enderror
+                        </div>
+
+                        <!-- Kategori -->
+                        <div>
+                            <label for="kategori" class="block text-sm font-semibold text-gray-900 mb-2">
+                                Kategori
+                            </label>
+                            <select class="w-full px-4 py-3 border-2 border-primary rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all appearance-none bg-white @error('kategori') border-red-500 @enderror" 
+                                    id="kategori" 
+                                    name="kategori"
+                                    style="background-image: url('data:image/svg+xml;charset=UTF-8,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%238B5CF6%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22><polyline points=%226,9 12,15 18,9%22></polyline></svg>'); background-repeat: no-repeat; background-position: right 12px center; background-size: 16px;">
+                                <option value="">Pilih Kategori</option>
+                                @foreach(\App\Models\Material::getKategoriOptions() as $key => $value)
+                                    <option value="{{ $key }}" {{ old('kategori') == $key ? 'selected' : '' }}>
+                                        {{ $value }}
+                                    </option>
+                                @endforeach
+                            </select>
+                            @error('kategori')
+                                <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
+                            @enderror
                         </div>
                     </div>
 
-                    <div class="row">
-                        <!-- Edisi (Optional) -->
-                        <div class="col-md-6">
-                            <div class="form-group mb-4">
-                                <label for="edisi" class="form-label fw-bold text-dark">Edisi</label>
-                                <input type="text" class="form-control @error('edisi') is-invalid @enderror" 
-                                       id="edisi" name="edisi" value="{{ old('edisi') }}" 
-                                       placeholder="Contoh: Edisi 1, Cetakan 2"
-                                       style="border: 1px solid #8B5CF6; border-radius: 8px; padding: 12px;">
-                                @error('edisi')
-                                    <div class="invalid-feedback">{{ $message }}</div>
-                                @enderror
-                            </div>
-                        </div>
-
-                        <!-- Kategori (Optional) -->
-                        <div class="col-md-6">
-                            <div class="form-group mb-4">
-                                <label for="kategori" class="form-label fw-bold text-dark">Kategori</label>
-                                <div class="position-relative">
-                                    <select class="form-control @error('kategori') is-invalid @enderror" 
-                                            id="kategori" name="kategori"
-                                            style="border: 1px solid #8B5CF6; border-radius: 8px; padding: 12px; appearance: none; background-image: url('data:image/svg+xml;charset=UTF-8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="%238B5CF6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6,9 12,15 18,9"></polyline></svg>'); background-repeat: no-repeat; background-position: right 12px center; background-size: 16px;">
-                                        <option value="">Pilih Kategori</option>
-                                        @foreach(\App\Models\Material::getKategoriOptions() as $key => $value)
-                                            <option value="{{ $key }}" {{ old('kategori') == $key ? 'selected' : '' }}>
-                                                {{ $value }}
-                                            </option>
-                                        @endforeach
-                                    </select>
-                                    @error('kategori')
-                                        <div class="invalid-feedback">{{ $message }}</div>
-                                    @enderror
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Deskripsi (Optional) -->
-                    <div class="form-group mb-4">
-                        <label for="deskripsi" class="form-label fw-bold text-dark">Deskripsi</label>
-                        <textarea class="form-control @error('deskripsi') is-invalid @enderror" 
-                                  id="deskripsi" name="deskripsi" rows="4" 
-                                  placeholder="Masukkan deskripsi materi pembelajaran"
-                                  style="border: 1px solid #8B5CF6; border-radius: 8px; padding: 12px; resize: vertical;">{{ old('deskripsi') }}</textarea>
+                    <!-- Deskripsi -->
+                    <div class="mt-6">
+                        <label for="deskripsi" class="block text-sm font-semibold text-gray-900 mb-2">
+                            Deskripsi
+                        </label>
+                        <textarea class="w-full px-4 py-3 border-2 border-primary rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all resize-y @error('deskripsi') border-red-500 @enderror" 
+                                  id="deskripsi" 
+                                  name="deskripsi" 
+                                  rows="4" 
+                                  placeholder="Masukkan deskripsi materi pembelajaran">{{ old('deskripsi') }}</textarea>
                         @error('deskripsi')
-                            <div class="invalid-feedback">{{ $message }}</div>
+                            <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
                         @enderror
                     </div>
                 </div>
 
-                <!-- File Upload Section (Mandatory) -->
-                <div class="mb-4">
-                    <h5 class="text-dark fw-bold mb-3">Upload File</h5>
+                <!-- File Upload Section -->
+                <div class="mb-8">
+                    <h5 class="text-lg font-bold text-gray-900 mb-4">Upload File</h5>
                     
-                    <div class="form-group">
-                        <label for="file" class="form-label fw-bold text-dark">Upload File <span class="text-danger">*</span></label>
-                        <div class="upload-area @error('file') is-invalid @enderror" 
-                             id="uploadArea" 
-                             style="border: 2px dashed #8B5CF6; border-radius: 12px; padding: 40px; text-align: center; background-color: #f8f9ff; cursor: pointer; transition: all 0.3s ease;">
+                    <div>
+                        <label for="file" class="block text-sm font-semibold text-gray-900 mb-2">
+                            Upload File <span class="text-red-500">*</span>
+                        </label>
+                        <div class="border-2 border-dashed border-primary rounded-xl p-8 sm:p-12 text-center bg-purple-50 hover:bg-purple-100 transition-all cursor-pointer @error('file') border-red-500 @enderror" 
+                             id="uploadArea">
                             <div class="upload-content">
-                                <div class="upload-icon mb-3">
-                                    <i class="fas fa-file-pdf text-primary" style="font-size: 3rem;"></i>
+                                <div class="mb-4">
+                                    <i class="fas fa-file-pdf text-primary text-5xl sm:text-6xl"></i>
                                 </div>
-                                <p class="text-dark fw-medium mb-2">Drag & Drop file PDF atau klik untuk browse</p>
-                                <p class="text-muted small">Maksimal ukuran file: 50MB</p>
+                                <p class="text-gray-900 font-medium mb-2 text-sm sm:text-base">Drag & Drop file PDF atau klik untuk browse</p>
+                                <p class="text-gray-500 text-xs sm:text-sm">Maksimal ukuran file: 50MB</p>
                             </div>
-                            <input type="file" class="d-none" id="file" name="file" accept=".pdf" required>
+                            <input type="file" class="hidden" id="file" name="file" accept=".pdf" required>
                         </div>
                         @error('file')
-                            <div class="invalid-feedback d-block">{{ $message }}</div>
+                            <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
                         @enderror
                     </div>
                 </div>
 
-                <!-- JSON Preview Section for Developers -->
-                <div class="mb-4" id="jsonPreviewSection" style="display: none;">
-                    <h5 class="text-dark fw-bold mb-3">
-                        <i class="fas fa-code me-2"></i>JSON Preview
+                <!-- JSON Preview Section -->
+                <div class="mb-8 hidden" id="jsonPreviewSection">
+                    <h5 class="text-lg font-bold text-gray-900 mb-4">
+                        <i class="fas fa-code mr-2"></i>JSON Preview
                     </h5>
-                    <div class="alert alert-info" style="border-radius: 8px;">
-                        <div class="d-flex align-items-center">
-                            <i class="fas fa-info-circle me-2"></i>
-                            <div>
+                    <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                        <div class="flex items-start gap-3">
+                            <i class="fas fa-info-circle text-blue-600 mt-1"></i>
+                            <div class="text-sm text-blue-900">
                                 <strong>Developer Info:</strong> This shows how the PDF will be converted to JSON format for braille processing.
                             </div>
                         </div>
                     </div>
-                    <div class="bg-light p-3 rounded" style="max-height: 300px; overflow-y: auto;">
-                        <pre id="jsonPreview" style="font-size: 12px; margin: 0; white-space: pre-wrap;"></pre>
+                    <div class="bg-gray-50 border border-gray-200 rounded-lg p-4 max-h-96 overflow-y-auto">
+                        <pre id="jsonPreview" class="text-xs font-mono whitespace-pre-wrap break-words"></pre>
                     </div>
                 </div>
 
                 <!-- Submit Buttons -->
-                <div class="d-flex justify-content-end gap-3 mt-4">
-                    <a href="{{ route('admin.manajemen-materi') }}" class="btn btn-outline-secondary px-4 py-2" style="border-radius: 8px;">
-                        <i class="fas fa-times me-2"></i>Batal
+                <div class="flex flex-col sm:flex-row justify-end gap-3">
+                    <a href="{{ route('admin.manajemen-materi') }}" 
+                       class="w-full sm:w-auto px-6 py-3 text-center border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium">
+                        <i class="fas fa-times mr-2"></i>Batal
                     </a>
-                    <button type="submit" class="btn btn-primary px-4 py-2" style="border-radius: 8px; background-color: #8B5CF6; border-color: #8B5CF6;">
-                        <i class="fas fa-upload me-2"></i>Upload Materi
+                    <button type="submit" 
+                            class="w-full sm:w-auto px-6 py-3 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors font-medium">
+                        <i class="fas fa-upload mr-2"></i>Upload Materi
                     </button>
                 </div>
             </form>
@@ -220,54 +240,29 @@
     </div>
 </div>
 
-<style>
-.upload-area:hover {
-    background-color: #f0f0ff !important;
-    border-color: #7C3AED !important;
-}
-
-.upload-area.dragover {
-    background-color: #e0e7ff !important;
-    border-color: #7C3AED !important;
-    transform: scale(1.02);
-}
-
-.form-control:focus {
-    border-color: #8B5CF6 !important;
-    box-shadow: 0 0 0 0.2rem rgba(139, 92, 246, 0.25) !important;
-}
-
-.btn-primary:hover {
-    background-color: #7C3AED !important;
-    border-color: #7C3AED !important;
-}
-</style>
-
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const uploadArea = document.getElementById('uploadArea');
     const fileInput = document.getElementById('file');
     const uploadContent = uploadArea.querySelector('.upload-content');
 
-    // Click to upload
     uploadArea.addEventListener('click', function() {
         fileInput.click();
     });
 
-    // Drag and drop functionality
     uploadArea.addEventListener('dragover', function(e) {
         e.preventDefault();
-        uploadArea.classList.add('dragover');
+        uploadArea.classList.add('scale-105', 'bg-purple-200');
     });
 
     uploadArea.addEventListener('dragleave', function(e) {
         e.preventDefault();
-        uploadArea.classList.remove('dragover');
+        uploadArea.classList.remove('scale-105', 'bg-purple-200');
     });
 
     uploadArea.addEventListener('drop', function(e) {
         e.preventDefault();
-        uploadArea.classList.remove('dragover');
+        uploadArea.classList.remove('scale-105', 'bg-purple-200');
         
         const files = e.dataTransfer.files;
         if (files.length > 0) {
@@ -276,7 +271,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // File input change
     fileInput.addEventListener('change', function(e) {
         const file = e.target.files[0];
         if (file) {
@@ -289,26 +283,24 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function updateFileDisplay(file) {
         uploadContent.innerHTML = `
-            <div class="upload-icon mb-3">
-                <i class="fas fa-file-pdf text-success" style="font-size: 3rem;"></i>
+            <div class="mb-4">
+                <i class="fas fa-file-pdf text-green-600 text-5xl sm:text-6xl"></i>
             </div>
-            <p class="text-dark fw-medium mb-2">${file.name}</p>
-            <p class="text-muted small">${(file.size / 1024 / 1024).toFixed(2)} MB</p>
-            <button type="button" class="btn btn-sm btn-outline-danger mt-2" onclick="clearFile()">
-                <i class="fas fa-times me-1"></i>Hapus File
+            <p class="text-gray-900 font-medium mb-2 text-sm sm:text-base">${file.name}</p>
+            <p class="text-gray-500 text-xs sm:text-sm">${(file.size / 1024 / 1024).toFixed(2)} MB</p>
+            <button type="button" class="mt-4 px-4 py-2 bg-red-500 text-white text-sm rounded-lg hover:bg-red-600 transition-colors" onclick="clearFile()">
+                <i class="fas fa-times mr-1"></i>Hapus File
             </button>
         `;
     }
 
     function validateFile(file) {
-        // Check file type
         if (file.type !== 'application/pdf') {
             alert('Hanya file PDF yang diperbolehkan!');
             clearFile();
             return false;
         }
         
-        // Check file size (50MB)
         if (file.size > 50 * 1024 * 1024) {
             alert('Ukuran file maksimal 50MB!');
             clearFile();
@@ -318,28 +310,24 @@ document.addEventListener('DOMContentLoaded', function() {
         return true;
     }
 
-    // Show JSON preview function
     function showJsonPreview(file) {
         const jsonPreviewSection = document.getElementById('jsonPreviewSection');
         const jsonPreview = document.getElementById('jsonPreview');
         
-        // Show preview section
-        jsonPreviewSection.style.display = 'block';
+        jsonPreviewSection.classList.remove('hidden');
         jsonPreview.textContent = 'Converting PDF to JSON...\n\nThis may take a few moments for large files.\nPlease wait...';
         
-        // Add progress indicator
         const progressDiv = document.createElement('div');
         progressDiv.id = 'conversionProgress';
+        progressDiv.className = 'mt-4';
         progressDiv.innerHTML = `
-            <div class="progress mt-2" style="height: 6px;">
-                <div class="progress-bar progress-bar-striped progress-bar-animated" 
-                     role="progressbar" style="width: 100%"></div>
+            <div class="w-full bg-gray-200 rounded-full h-2">
+                <div class="bg-primary h-2 rounded-full animate-pulse" style="width: 100%"></div>
             </div>
-            <small class="text-muted">Converting PDF content...</small>
+            <p class="text-sm text-gray-600 mt-2">Converting PDF content...</p>
         `;
         jsonPreview.parentNode.insertBefore(progressDiv, jsonPreview);
         
-        // Create FormData to send file for conversion
         const formData = new FormData();
         formData.append('file', file);
         formData.append('judul', document.getElementById('judul').value || 'Sample Title');
@@ -347,7 +335,6 @@ document.addEventListener('DOMContentLoaded', function() {
         formData.append('tahun', document.getElementById('tahun_terbit').value || new Date().getFullYear());
         formData.append('edisi', document.getElementById('edisi').value || '1st Edition');
         
-        // Send file to conversion endpoint
         fetch('/admin/manajemen-materi/preview-conversion', {
             method: 'POST',
             body: formData,
@@ -357,46 +344,36 @@ document.addEventListener('DOMContentLoaded', function() {
         })
         .then(response => response.json())
         .then(data => {
-            // Remove progress indicator
             const progressDiv = document.getElementById('conversionProgress');
-            if (progressDiv) {
-                progressDiv.remove();
-            }
+            if (progressDiv) progressDiv.remove();
             
             if (data.error) {
-                jsonPreview.textContent = 'Error: ' + data.error;
-            } else {
-                jsonPreview.textContent = JSON.stringify(data, null, 2);
+                throw new Error(data.error);
             }
+            jsonPreview.textContent = JSON.stringify(data, null, 2);
         })
         .catch(error => {
-            // Remove progress indicator
             const progressDiv = document.getElementById('conversionProgress');
-            if (progressDiv) {
-                progressDiv.remove();
-            }
+            if (progressDiv) progressDiv.remove();
             
             console.error('Error:', error);
             jsonPreview.textContent = 'Error converting PDF to JSON. Please try again.';
         });
     }
 
-    // Clear file function
     window.clearFile = function() {
         fileInput.value = '';
         uploadContent.innerHTML = `
-            <div class="upload-icon mb-3">
-                <i class="fas fa-file-pdf text-primary" style="font-size: 3rem;"></i>
+            <div class="mb-4">
+                <i class="fas fa-file-pdf text-primary text-5xl sm:text-6xl"></i>
             </div>
-            <p class="text-dark fw-medium mb-2">Drag & Drop file PDF atau klik untuk browse</p>
-            <p class="text-muted small">Maksimal ukuran file: 50MB</p>
+            <p class="text-gray-900 font-medium mb-2 text-sm sm:text-base">Drag & Drop file PDF atau klik untuk browse</p>
+            <p class="text-gray-500 text-xs sm:text-sm">Maksimal ukuran file: 50MB</p>
         `;
         
-        // Hide JSON preview
-        document.getElementById('jsonPreviewSection').style.display = 'none';
+        document.getElementById('jsonPreviewSection').classList.add('hidden');
     };
 
-    // Form validation
     document.getElementById('uploadForm').addEventListener('submit', function(e) {
         const requiredFields = ['judul', 'tingkat', 'akses', 'file'];
         let isValid = true;
@@ -404,10 +381,10 @@ document.addEventListener('DOMContentLoaded', function() {
         requiredFields.forEach(function(fieldName) {
             const field = document.getElementById(fieldName);
             if (!field.value.trim()) {
-                field.classList.add('is-invalid');
+                field.classList.add('border-red-500');
                 isValid = false;
             } else {
-                field.classList.remove('is-invalid');
+                field.classList.remove('border-red-500');
             }
         });
         

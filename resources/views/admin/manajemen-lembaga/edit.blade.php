@@ -3,146 +3,129 @@
 @section('title', 'Edit Lembaga')
 
 @section('content')
-<div class="page-header">
-    <div style="display: flex; align-items: center; margin-bottom: 2rem;">
-        <a href="{{ route('admin.manajemen-lembaga') }}" class="btn btn-secondary" style="margin-right: 1rem;">
-            <i class="fas fa-arrow-left"></i> Kembali
+<div class="w-full px-6">
+    <div class="flex items-center mb-6">
+        <a href="{{ route('admin.manajemen-lembaga') }}" 
+           class="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg mr-3">
+            ← Kembali
         </a>
         <div>
-            <h1 class="page-title">Edit Lembaga</h1>
-            <p class="page-subtitle">Edit data lembaga {{ $lembaga->nama }}</p>
+            <h1 class="text-2xl font-bold">Edit Lembaga</h1>
+            <p class="text-gray-500">Edit data lembaga <b>{{ $lembaga->nama }}</b></p>
         </div>
     </div>
-</div>
 
-<div class="card" style="max-width: 800px;">
-    <form method="POST" action="{{ route('admin.manajemen-lembaga.update', $lembaga) }}">
+    <form method="POST" action="{{ route('admin.manajemen-lembaga', $lembaga) }}" 
+          class="bg-white shadow-md rounded-xl p-6 w-full">
         @csrf
         @method('PUT')
-        
-        <div class="form-group">
-            <label for="nama" class="form-label">Nama Lembaga <span style="color: var(--danger);">*</span></label>
-            <input type="text" id="nama" name="nama" class="form-input" 
-                   value="{{ old('nama', $lembaga->nama) }}" required 
-                   placeholder="Masukkan nama lembaga">
-        </div>
-        
-        <div class="form-group">
-            <label for="type" class="form-label">Type Lembaga <span style="color: var(--danger);">*</span></label>
-            <input type="text" id="type" name="type" class="form-input" 
-                   value="{{ old('type', $lembaga->type) }}" required 
-                   placeholder="Contoh: Sekolah, Universitas, Yayasan, dll"
-                   list="type-suggestions">
-            <datalist id="type-suggestions">
-                <option value="Sekolah Dasar">
-                <option value="Sekolah Menengah Pertama">
-                <option value="Sekolah Menengah Atas">
-                <option value="Universitas">
-                <option value="Institut">
-                <option value="Akademi">
-                <option value="Yayasan">
-                <option value="Panti Sosial">
-                <option value="Rumah Sakit">
-                <option value="Klinik">
-                <option value="Pusat Rehabilitasi">
-                <option value="Organisasi Non-Profit">
-            </datalist>
-        </div>
-        
-        <div class="form-group">
-            <label for="alamat" class="form-label">Alamat <span style="color: var(--danger);">*</span></label>
-            <textarea id="alamat" name="alamat" class="form-input" rows="4" 
-                      required placeholder="Masukkan alamat lengkap lembaga">{{ old('alamat', $lembaga->alamat) }}</textarea>
-        </div>
-        
-        <!-- Lembaga Info -->
-        <div style="background: var(--gray-50); padding: 1rem; border-radius: 8px; margin-bottom: 2rem;">
-            <h4 style="margin-bottom: 0.5rem; color: var(--text-dark);">Informasi Lembaga</h4>
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; font-size: 0.875rem; color: var(--text-light);">
-                <div>
-                    <strong>Dibuat:</strong> {{ $lembaga->created_at->format('d/m/Y H:i') }}
-                </div>
-                <div>
-                    <strong>Terakhir Update:</strong> {{ $lembaga->updated_at->format('d/m/Y H:i') }}
-                </div>
-                <div>
-                    <strong>Total Pengguna:</strong> {{ $lembaga->users()->count() }} pengguna
-                </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <!-- Nama -->
+            <div class="col-span-2">
+                <label for="nama" class="block font-medium text-gray-700 mb-2">Nama Lembaga *</label>
+                <input type="text" id="nama" name="nama" value="{{ old('nama', $lembaga->nama) }}"
+                       class="w-full px-4 py-2 border rounded-lg focus:ring focus:ring-purple-300"
+                       placeholder="Masukkan nama lembaga" required>
+            </div>
+
+            <!-- Type -->
+            <div>
+                <label for="type" class="block font-medium text-gray-700 mb-2">Type Lembaga *</label>
+                <select id="type" name="type" 
+                        class="w-full px-4 py-2 border rounded-lg focus:ring focus:ring-purple-300 bg-white shadow-sm" required>
+                    <option value="Sekolah" {{ old('type', $lembaga->type) == 'Sekolah' ? 'selected' : '' }}>Sekolah</option>
+                    <option value="Lembaga" {{ old('type', $lembaga->type) == 'Lembaga' ? 'selected' : '' }}>Lembaga</option>
+                    <option value="Individu" {{ old('type', $lembaga->type) == 'Individu' ? 'selected' : '' }}>Individu</option>
+                </select>
+            </div>
+
+            <!-- Alamat -->
+            <div class="col-span-2">
+                <label for="alamat" class="block font-medium text-gray-700 mb-2">Alamat *</label>
+                <textarea id="alamat" name="alamat" rows="3"
+                          class="w-full px-4 py-2 border rounded-lg focus:ring focus:ring-purple-300"
+                          placeholder="Masukkan alamat lengkap lembaga" required>{{ old('alamat', $lembaga->alamat) }}</textarea>
+            </div>
+
+            <!-- Deskripsi -->
+            <div class="col-span-2">
+                <label for="deskripsi" class="block font-medium text-gray-700 mb-2">Deskripsi</label>
+                <textarea id="deskripsi" name="deskripsi" rows="3"
+                          class="w-full px-4 py-2 border rounded-lg focus:ring focus:ring-purple-300"
+                          placeholder="Tuliskan deskripsi lembaga (opsional)">{{ old('deskripsi', $lembaga->deskripsi) }}</textarea>
             </div>
         </div>
-        
-        <!-- Preview Card -->
-        <div style="background: var(--gray-50); padding: 1.5rem; border-radius: 8px; margin-bottom: 2rem; border: 1px solid var(--border-color);">
-            <h4 style="margin-bottom: 1rem; color: var(--text-dark); display: flex; align-items: center;">
-                <i class="fas fa-eye" style="margin-right: 0.5rem;"></i>
-                Preview Lembaga
+
+        <!-- Informasi Lembaga -->
+        <div class="bg-gray-50 border border-gray-200 rounded-lg p-4 my-6">
+            <h4 class="font-semibold mb-3">Informasi Lembaga</h4>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm text-gray-600">
+                <div><strong>Dibuat:</strong> {{ $lembaga->created_at->format('d/m/Y H:i') }}</div>
+                <div><strong>Terakhir Update:</strong> {{ $lembaga->updated_at->format('d/m/Y H:i') }}</div>
+                <div><strong>Total Pengguna:</strong> {{ $lembaga->users()->count() }} pengguna</div>
+            </div>
+        </div>
+
+        <!-- Preview -->
+        <div class="bg-gray-50 border border-gray-200 rounded-lg p-4 my-6">
+            <h4 class="font-semibold mb-3 flex items-center">
+                <i class="fas fa-eye mr-2"></i> Preview Lembaga
             </h4>
-            <div style="background: white; padding: 1rem; border-radius: 8px; border: 1px solid var(--border-color);">
-                <div style="display: flex; align-items: center;">
-                    <div style="
-                        width: 40px; 
-                        height: 40px; 
-                        border-radius: 8px; 
-                        background: linear-gradient(135deg, var(--primary-color), var(--secondary-color)); 
-                        color: white; 
-                        display: flex; 
-                        align-items: center; 
-                        justify-content: center; 
-                        font-weight: 600; 
-                        margin-right: 0.75rem;
-                    ">
-                        <i class="fas fa-building"></i>
+            <div class="bg-white border rounded-lg p-4 flex items-start">
+                <div class="w-10 h-10 flex items-center justify-center rounded-lg text-white font-bold mr-3"
+                     style="background: linear-gradient(135deg,#513587,#A7AAFF)">
+                    <i class="fas fa-building"></i>
+                </div>
+                <div>
+                    <div class="font-semibold" id="preview-nama">{{ $lembaga->nama }}</div>
+                    <div class="text-sm text-gray-500">
+                        <span class="px-2 py-1 rounded bg-purple-100 text-purple-700 text-xs" id="preview-type">{{ $lembaga->type }}</span>
                     </div>
-                    <div>
-                        <div style="font-weight: 600;" id="preview-nama">{{ $lembaga->nama }}</div>
-                        <div style="font-size: 0.875rem; color: var(--text-light);">
-                            <span class="badge badge-primary" id="preview-type">{{ $lembaga->type }}</span>
-                        </div>
-                        <div style="font-size: 0.875rem; color: var(--text-light); margin-top: 0.25rem;" id="preview-alamat">{{ $lembaga->alamat }}</div>
-                    </div>
+                    <div class="text-sm text-gray-500 mt-1" id="preview-alamat">{{ $lembaga->alamat }}</div>
                 </div>
             </div>
         </div>
-        
-        <!-- Users in this Lembaga -->
+
+        <!-- Daftar Pengguna -->
         @if($lembaga->users()->count() > 0)
-        <div style="background: var(--gray-50); padding: 1.5rem; border-radius: 8px; margin-bottom: 2rem; border: 1px solid var(--border-color);">
-            <h4 style="margin-bottom: 1rem; color: var(--text-dark); display: flex; align-items: center;">
-                <i class="fas fa-users" style="margin-right: 0.5rem;"></i>
-                Pengguna di Lembaga Ini ({{ $lembaga->users()->count() }})
+        <div class="bg-gray-50 border border-gray-200 rounded-lg p-4 my-6">
+            <h4 class="font-semibold mb-3 flex items-center">
+                <i class="fas fa-users mr-2"></i> Pengguna di Lembaga Ini ({{ $lembaga->users()->count() }})
             </h4>
-            <div style="display: grid; gap: 0.5rem; max-height: 200px; overflow-y: auto;">
+            <div class="space-y-2 max-h-56 overflow-y-auto">
                 @foreach($lembaga->users()->limit(10)->get() as $user)
-                <div style="background: white; padding: 0.75rem; border-radius: 6px; border: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center;">
-                    <div style="display: flex; align-items: center;">
-                        <div class="user-avatar" style="width: 24px; height: 24px; font-size: 0.625rem; margin-right: 0.5rem;">
+                <div class="bg-white border rounded-lg p-3 flex justify-between items-center">
+                    <div class="flex items-center">
+                        <div class="w-8 h-8 flex items-center justify-center bg-purple-100 text-purple-700 font-semibold rounded-full mr-2">
                             {{ strtoupper(substr($user->nama_lengkap, 0, 1)) }}
                         </div>
                         <div>
-                            <div style="font-weight: 600; font-size: 0.875rem;">{{ $user->nama_lengkap }}</div>
-                            <div style="font-size: 0.75rem; color: var(--text-light);">{{ $user->email }}</div>
+                            <div class="font-medium text-sm">{{ $user->nama_lengkap }}</div>
+                            <div class="text-xs text-gray-500">{{ $user->email }}</div>
                         </div>
                     </div>
-                    <span class="badge {{ $user->role === 'admin' ? 'badge-primary' : 'badge-success' }}" style="font-size: 0.625rem;">
+                    <span class="text-xs px-2 py-1 rounded {{ $user->role === 'admin' ? 'bg-purple-100 text-purple-700' : 'bg-green-100 text-green-700' }}">
                         {{ ucfirst($user->role) }}
                     </span>
                 </div>
                 @endforeach
                 @if($lembaga->users()->count() > 10)
-                <div style="text-align: center; color: var(--text-light); font-size: 0.875rem; padding: 0.5rem;">
+                <div class="text-center text-gray-500 text-sm py-2">
                     dan {{ $lembaga->users()->count() - 10 }} pengguna lainnya...
                 </div>
                 @endif
             </div>
         </div>
         @endif
-        
-        <div style="border-top: 1px solid var(--border-color); padding-top: 2rem; display: flex; gap: 1rem; justify-content: flex-end;">
-            <a href="{{ route('admin.manajemen-lembaga') }}" class="btn btn-secondary">
-                <i class="fas fa-times"></i> Batal
+
+        <!-- Tombol -->
+        <div class="flex justify-end space-x-3 mt-6">
+            <a href="{{ route('admin.manajemen-lembaga') }}" class="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg">
+                Batal
             </a>
-            <button type="submit" class="btn btn-primary">
-                <i class="fas fa-save"></i> Update Lembaga
+            <button type="submit" class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg">
+                <i class="fas fa-save mr-1"></i> Update Lembaga
             </button>
         </div>
     </form>
@@ -153,19 +136,19 @@ document.addEventListener('DOMContentLoaded', function() {
     const namaInput = document.getElementById('nama');
     const typeInput = document.getElementById('type');
     const alamatInput = document.getElementById('alamat');
-    
+
     const previewNama = document.getElementById('preview-nama');
     const previewType = document.getElementById('preview-type');
     const previewAlamat = document.getElementById('preview-alamat');
-    
+
     function updatePreview() {
         previewNama.textContent = namaInput.value || 'Nama Lembaga';
         previewType.textContent = typeInput.value || 'Type';
         previewAlamat.textContent = alamatInput.value || 'Alamat lembaga';
     }
-    
+
     namaInput.addEventListener('input', updatePreview);
-    typeInput.addEventListener('input', updatePreview);
+    typeInput.addEventListener('change', updatePreview);
     alamatInput.addEventListener('input', updatePreview);
 });
 </script>

@@ -35,12 +35,10 @@
             <div class="w-full max-w-md">
                 <!-- Logo -->
                 <a href="{{ route('home') }}" 
-                   class="inline-flex items-center text-3xl font-bold text-primary mb-8 hover:opacity-80 transition-opacity focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 rounded"
-                   aria-label="Kembali ke beranda Inkluvia">
-                    <svg class="w-10 h-10 mr-3" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <circle cx="20" cy="15" r="8" fill="#A7AAFF"/>
-                        <path d="M20 25C13 25 8 30 8 35H32C32 30 27 25 20 25Z" fill="#513587"/>
-                    </svg>
+                class="inline-flex items-center text-3xl font-bold text-primary mb-8 hover:opacity-80 transition-opacity focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 rounded"
+                aria-label="Kembali ke beranda Inkluvia">
+                    
+                    <img src="{{ asset('assets/icon.png') }}" alt="Inkluvia Logo" class="w-12 h-10 mr-3">
                     inkluvia
                 </a>
 
@@ -137,56 +135,9 @@
         <div class="hidden lg:flex flex-1 bg-gradient-to-br from-primary to-secondary items-center justify-center p-12">
             <div class="max-w-lg text-center" role="img" aria-label="Ilustrasi pembelajaran braille">
                 <div class="bg-white bg-opacity-20 backdrop-blur-sm rounded-3xl p-8 mb-6">
-                    <svg class="w-full h-auto" viewBox="0 0 400 300" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <!-- Chalkboard -->
-                        <rect x="50" y="30" width="300" height="180" rx="8" fill="#2D8B7B"/>
-                        <rect x="40" y="20" width="320" height="200" rx="8" stroke="#C6903B" stroke-width="8"/>
-                        
-                        <!-- Braille dots on board -->
-                        <g fill="white">
-                            <circle cx="120" cy="80" r="6"/>
-                            <circle cx="140" cy="80" r="6"/>
-                            <circle cx="120" cy="100" r="6"/>
-                            <circle cx="140" cy="100" r="6"/>
-                            <circle cx="120" cy="120" r="6"/>
-                            <circle cx="140" cy="120" r="6"/>
-                            
-                            <circle cx="180" cy="80" r="6"/>
-                            <circle cx="200" cy="80" r="6"/>
-                            <circle cx="200" cy="100" r="6"/>
-                            <circle cx="180" cy="120" r="6"/>
-                            <circle cx="200" cy="120" r="6"/>
-                            
-                            <circle cx="240" cy="80" r="6"/>
-                            <circle cx="260" cy="80" r="6"/>
-                            <circle cx="240" cy="100" r="6"/>
-                            <circle cx="260" cy="100" r="6"/>
-                            <circle cx="240" cy="120" r="6"/>
-                        </g>
-                        
-                        <!-- Teacher -->
-                        <ellipse cx="300" cy="250" rx="30" ry="8" fill="#1F2937" opacity="0.2"/>
-                        <rect x="285" y="180" width="30" height="60" rx="15" fill="#E8B4B8"/>
-                        <circle cx="300" cy="165" r="18" fill="#E8B4B8"/>
-                        <path d="M282 165C282 160 285 155 300 155C315 155 318 160 318 165" fill="#1F2937"/>
-                        <circle cx="295" cy="162" r="3" fill="#1F2937"/>
-                        <circle cx="305" cy="162" r="3" fill="#1F2937"/>
-                        <rect x="285" y="178" width="30" height="35" fill="#DC2626"/>
-                        <path d="M270 210L285 200L285 240L270 230Z" fill="#1F2937"/>
-                        <path d="M315 200L330 210L330 230L315 240Z" fill="#1F2937"/>
-                        
-                        <!-- Student -->
-                        <ellipse cx="120" cy="280" rx="28" ry="8" fill="#1F2937" opacity="0.2"/>
-                        <rect x="107" y="220" width="26" height="50" rx="13" fill="#F9C6BC"/>
-                        <circle cx="120" cy="205" r="16" fill="#F9C6BC"/>
-                        <path d="M105 205C105 200 108 196 120 196C132 196 135 200 135 205" fill="#1F2937"/>
-                        <circle cx="115" cy="203" r="2" fill="#1F2937"/>
-                        <circle cx="125" cy="203" r="2" fill="#1F2937"/>
-                        <rect x="107" y="218" width="26" height="30" fill="#A78BFA"/>
-                        <rect x="95" y="235" width="12" height="35" fill="#1E3A8A"/>
-                        <rect x="133" y="235" width="12" height="35" fill="#1E3A8A"/>
-                        <rect x="107" y="245" width="26" height="8" fill="#1F2937"/>
-                    </svg>
+                    <img src="{{ asset('assets/auth.png') }}" 
+                        alt="Ilustrasi pembelajaran braille" 
+                        class="w-full h-auto rounded-2xl shadow-lg">
                 </div>
                 <h2 class="text-2xl font-bold text-white mb-3">Platform Pembelajaran Inklusif</h2>
                 <p class="text-white text-opacity-90">Belajar Braille dengan mudah dan interaktif untuk semua</p>

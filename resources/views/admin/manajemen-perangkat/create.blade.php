@@ -3,150 +3,220 @@
 @section('title', 'Tambah Perangkat')
 
 @section('content')
-<div class="page-header">
-    <div style="display: flex; align-items: center; margin-bottom: 2rem;">
-        <a href="{{ route('admin.kelola-perangkat') }}" class="btn btn-secondary" style="margin-right: 1rem;">
-            <i class="fas fa-arrow-left"></i> Kembali
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+    <!-- Header -->
+    <div class="flex items-center gap-3 mb-6">
+        <a href="{{ route('admin.kelola-perangkat') }}" 
+           class="text-primary hover:text-primary-dark transition-colors">
+            <i class="fas fa-arrow-left text-xl"></i>
         </a>
         <div>
-            <h1 class="page-title">Tambah Perangkat Baru</h1>
-            <p class="page-subtitle">Tambahkan perangkat EduBraille baru ke sistem</p>
+            <h1 class="text-2xl sm:text-3xl font-bold text-gray-900">Tambah Perangkat Baru</h1>
+            <p class="text-sm text-gray-600 mt-1">Tambahkan perangkat EduBraille baru ke sistem</p>
         </div>
     </div>
-</div>
 
-<div class="card" style="max-width: 800px;">
-    <form method="POST" action="{{ route('admin.kelola-perangkat.store') }}" id="deviceForm">
-        @csrf
-        
-        <div class="form-group">
-            <label for="nama_device" class="form-label">Nama Perangkat <span style="color: var(--danger);">*</span></label>
-            <input type="text" id="nama_device" name="nama_device" class="form-input" 
-                   value="{{ old('nama_device') }}" required 
-                   placeholder="Contoh: EduBraille Lab 1">
-        </div>
-        
-        <div class="form-group">
-            <label for="serial_number" class="form-label">Serial Number</label>
-            <input type="text" id="serial_number" name="serial_number" class="form-input" 
-                   value="{{ old('serial_number') }}" 
-                   placeholder="Kosongkan untuk generate otomatis">
-            <small style="color: var(--text-light); font-size: 0.875rem;">
-                Format: EDU + 6 digit hex (contoh: EDU1A2B3C). Kosongkan untuk generate otomatis.
-            </small>
-        </div>
-        
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 2rem;">
-            <div class="form-group">
-                <label for="lembaga_id" class="form-label">Lembaga <span style="color: var(--danger);">*</span></label>
-                <select id="lembaga_id" name="lembaga_id" class="form-select" required onchange="handleLembagaChange()">
-                    <option value="">Pilih Lembaga</option>
-                    @foreach($lembagas as $lembaga)
-                    <option value="{{ $lembaga->id }}" data-type="{{ $lembaga->type }}" {{ old('lembaga_id') == $lembaga->id ? 'selected' : '' }}>
-                        {{ $lembaga->nama }} ({{ $lembaga->type }})
-                    </option>
-                    @endforeach
-                </select>
-            </div>
-            
-            <div class="form-group">
-                <label for="user_id" class="form-label">
-                    Pengguna 
-                    <span id="user_required" style="color: var(--danger); display: none;">*</span>
-                </label>
-                <select id="user_id" name="user_id" class="form-select" disabled>
-                    <option value="">Pilih lembaga terlebih dahulu</option>
-                </select>
-                <small id="user_help" style="color: var(--text-light); font-size: 0.875rem; display: none;">
-                    Wajib diisi untuk lembaga individu
-                </small>
-            </div>
-        </div>
-        
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 2rem;">
-            <div class="form-group">
-                <label for="status" class="form-label">Status <span style="color: var(--danger);">*</span></label>
-                <select id="status" name="status" class="form-select" required>
-                    <option value="">Pilih Status</option>
-                    <option value="aktif" {{ old('status') === 'aktif' ? 'selected' : '' }}>Aktif</option>
-                    <option value="tidak_aktif" {{ old('status') === 'tidak_aktif' ? 'selected' : '' }}>Tidak Aktif</option>
-                    <option value="maintenance" {{ old('status') === 'maintenance' ? 'selected' : '' }}>Maintenance</option>
-                </select>
-            </div>
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Form Section -->
+        <div class="lg:col-span-2">
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200">
+                <div class="p-4 sm:p-6">
+                    <form method="POST" action="{{ route('admin.kelola-perangkat.store') }}" id="deviceForm">
+                        @csrf
+                        
+                        <!-- Nama Perangkat -->
+                        <div class="mb-6">
+                            <label for="nama_device" class="block text-sm font-semibold text-gray-900 mb-2">
+                                Nama Perangkat <span class="text-red-500">*</span>
+                            </label>
+                            <input type="text" 
+                                   id="nama_device" 
+                                   name="nama_device" 
+                                   class="w-full px-4 py-3 border-2 border-primary rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all @error('nama_device') border-red-500 @enderror" 
+                                   value="{{ old('nama_device') }}" 
+                                   required 
+                                   placeholder="Contoh: EduBraille Lab 1">
+                            @error('nama_device')
+                                <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
+                            @enderror
+                        </div>
+                        
+                        <!-- Serial Number -->
+                        <div class="mb-6">
+                            <label for="serial_number" class="block text-sm font-semibold text-gray-900 mb-2">
+                                Serial Number
+                            </label>
+                            <input type="text" 
+                                   id="serial_number" 
+                                   name="serial_number" 
+                                   class="w-full px-4 py-3 border-2 border-primary rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all @error('serial_number') border-red-500 @enderror" 
+                                   value="{{ old('serial_number') }}" 
+                                   placeholder="Kosongkan untuk generate otomatis">
+                            <p class="mt-2 text-xs text-gray-500">
+                                Format: EDU + 6 digit hex (contoh: EDU1A2B3C). Kosongkan untuk generate otomatis.
+                            </p>
+                            @error('serial_number')
+                                <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
+                            @enderror
+                        </div>
+                        
+                        <!-- Lembaga & User -->
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                            <div>
+                                <label for="lembaga_id" class="block text-sm font-semibold text-gray-900 mb-2">
+                                    Lembaga <span class="text-red-500">*</span>
+                                </label>
+                                <select id="lembaga_id" 
+                                        name="lembaga_id" 
+                                        class="w-full px-4 py-3 border-2 border-primary rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent appearance-none bg-white @error('lembaga_id') border-red-500 @enderror" 
+                                        required 
+                                        onchange="handleLembagaChange()"
+                                        style="background-image: url('data:image/svg+xml;charset=UTF-8,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%238B5CF6%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22><polyline points=%226,9 12,15 18,9%22></polyline></svg>'); background-repeat: no-repeat; background-position: right 12px center; background-size: 16px;">
+                                    <option value="">Pilih Lembaga</option>
+                                    @foreach($lembagas as $lembaga)
+                                    <option value="{{ $lembaga->id }}" data-type="{{ $lembaga->type }}" {{ old('lembaga_id') == $lembaga->id ? 'selected' : '' }}>
+                                        {{ $lembaga->nama }} ({{ $lembaga->type }})
+                                    </option>
+                                    @endforeach
+                                </select>
+                                @error('lembaga_id')
+                                    <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
+                                @enderror
+                            </div>
+                            
+                            <div>
+                                <label for="user_id" class="block text-sm font-semibold text-gray-900 mb-2">
+                                    Pengguna 
+                                    <span id="user_required" class="text-red-500 hidden">*</span>
+                                </label>
+                                <select id="user_id" 
+                                        name="user_id" 
+                                        class="w-full px-4 py-3 border-2 border-primary rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent appearance-none bg-white @error('user_id') border-red-500 @enderror" 
+                                        disabled
+                                        style="background-image: url('data:image/svg+xml;charset=UTF-8,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%238B5CF6%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22><polyline points=%226,9 12,15 18,9%22></polyline></svg>'); background-repeat: no-repeat; background-position: right 12px center; background-size: 16px;">
+                                    <option value="">Pilih lembaga terlebih dahulu</option>
+                                </select>
+                                <p id="user_help" class="mt-2 text-xs text-gray-500 hidden">
+                                    Wajib diisi untuk lembaga individu
+                                </p>
+                                @error('user_id')
+                                    <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
+                                @enderror
+                            </div>
+                        </div>
+                        
+                        <!-- Status & Capacity -->
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                            <div>
+                                <label for="status" class="block text-sm font-semibold text-gray-900 mb-2">
+                                    Status <span class="text-red-500">*</span>
+                                </label>
+                                <select id="status" 
+                                        name="status" 
+                                        class="w-full px-4 py-3 border-2 border-primary rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent appearance-none bg-white @error('status') border-red-500 @enderror" 
+                                        required
+                                        style="background-image: url('data:image/svg+xml;charset=UTF-8,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%238B5CF6%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22><polyline points=%226,9 12,15 18,9%22></polyline></svg>'); background-repeat: no-repeat; background-position: right 12px center; background-size: 16px;">
+                                    <option value="">Pilih Status</option>
+                                    <option value="aktif" {{ old('status') === 'aktif' ? 'selected' : '' }}>Aktif</option>
+                                    <option value="tidak_aktif" {{ old('status') === 'tidak_aktif' ? 'selected' : '' }}>Tidak Aktif</option>
+                                    <option value="maintenance" {{ old('status') === 'maintenance' ? 'selected' : '' }}>Maintenance</option>
+                                </select>
+                                @error('status')
+                                    <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
+                                @enderror
+                            </div>
 
-            <div class="form-group">
-                <label for="character_capacity" class="form-label">Jumlah Karakter <span style="color: var(--danger);">*</span></label>
-                <input type="number" id="character_capacity" name="character_capacity" class="form-input" 
-                       value="{{ old('character_capacity', 40) }}" min="1" max="20" required
-                       placeholder="Masukkan jumlah karakter yang dapat ditampilkan">
-                <small style="color: var(--text-light); font-size: 0.875rem;">
-                    Masukkan jumlah karakter yang dapat ditampilkan.
-                </small>
+                            <div>
+                                <label for="character_capacity" class="block text-sm font-semibold text-gray-900 mb-2">
+                                    Jumlah Karakter <span class="text-red-500">*</span>
+                                </label>
+                                <input type="number" 
+                                       id="character_capacity" 
+                                       name="character_capacity" 
+                                       class="w-full px-4 py-3 border-2 border-primary rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all @error('character_capacity') border-red-500 @enderror" 
+                                       value="{{ old('character_capacity', 40) }}" 
+                                       min="1" 
+                                       max="20" 
+                                       required
+                                       placeholder="Jumlah karakter">
+                                <p class="mt-2 text-xs text-gray-500">
+                                    Masukkan jumlah karakter yang dapat ditampilkan.
+                                </p>
+                                @error('character_capacity')
+                                    <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
+                                @enderror
+                            </div>
+                        </div>
+                        
+                        <!-- Keterangan -->
+                        <div class="mb-6">
+                            <label for="keterangan" class="block text-sm font-semibold text-gray-900 mb-2">
+                                Keterangan
+                            </label>
+                            <textarea id="keterangan" 
+                                      name="keterangan" 
+                                      class="w-full px-4 py-3 border-2 border-primary rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all resize-y @error('keterangan') border-red-500 @enderror" 
+                                      rows="3" 
+                                      placeholder="Keterangan tambahan tentang perangkat">{{ old('keterangan') }}</textarea>
+                            @error('keterangan')
+                                <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
+                            @enderror
+                        </div>
+                        
+                        <!-- Buttons -->
+                        <div class="flex flex-col sm:flex-row justify-end gap-3 pt-6 border-t border-gray-200">
+                            <a href="{{ route('admin.kelola-perangkat') }}" 
+                               class="w-full sm:w-auto px-6 py-3 text-center border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium">
+                                <i class="fas fa-times mr-2"></i>Batal
+                            </a>
+                            <button type="submit" 
+                                    class="w-full sm:w-auto px-6 py-3 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors font-medium">
+                                <i class="fas fa-save mr-2"></i>Simpan Perangkat
+                            </button>
+                        </div>
+                    </form>
+                </div>
             </div>
         </div>
-        
-        <div class="form-group">
-            <label for="keterangan" class="form-label">Keterangan</label>
-            <textarea id="keterangan" name="keterangan" class="form-input" rows="3" 
-                      placeholder="Keterangan tambahan tentang perangkat">{{ old('keterangan') }}</textarea>
-        </div>
-        
-        <!-- Preview Card -->
-        <div style="background: var(--gray-50); padding: 1.5rem; border-radius: 8px; margin-bottom: 2rem; border: 1px solid var(--border-color);">
-            <h4 style="margin-bottom: 1rem; color: var(--text-dark); display: flex; align-items: center;">
-                <i class="fas fa-eye" style="margin-right: 0.5rem;"></i>
-                Preview Perangkat
-            </h4>
-            <div style="background: white; padding: 1rem; border-radius: 8px; border: 1px solid var(--border-color);">
-                <div style="display: flex; align-items: center;">
-                    <div style="
-                        width: 40px; 
-                        height: 40px; 
-                        border-radius: 8px; 
-                        background: linear-gradient(135deg, var(--primary-color), var(--secondary-color)); 
-                        color: white; 
-                        display: flex; 
-                        align-items: center; 
-                        justify-content: center; 
-                        font-weight: 600; 
-                        margin-right: 0.75rem;
-                    ">
-                        <i class="fas fa-laptop"></i>
-                    </div>
-                    <div>
-                        <div style="font-weight: 600;" id="preview-nama">Nama Perangkat</div>
-                        <div style="font-size: 0.875rem; color: var(--text-light);">
-                            <code id="preview-serial" style="background: var(--gray-100); padding: 0.125rem 0.25rem; border-radius: 4px;">Serial Number</code>
-                        </div>
-                        <div style="font-size: 0.875rem; color: var(--text-light); margin-top: 0.25rem;">
-                            <span id="preview-lembaga">Lembaga</span>
-                            <span id="preview-user" style="margin-left: 0.5rem;"></span>
-                        </div>
-                        <div style="font-size: 0.875rem; color: var(--text-light); margin-top: 0.25rem;">
-                            <strong>Kapasitas:</strong> <span id="preview-capacity">-</span> karakter
-                        </div>
-                        <div style="margin-top: 0.5rem;">
-                            <span class="badge badge-secondary" id="preview-status">Status</span>
+
+        <!-- Preview Section -->
+        <div class="lg:col-span-1">
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 sticky top-6">
+                <div class="p-4 sm:p-6">
+                    <h4 class="text-lg font-bold text-gray-900 mb-4 flex items-center">
+                        <i class="fas fa-eye text-primary mr-2"></i>
+                        Preview Perangkat
+                    </h4>
+                    
+                    <div class="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                        <div class="flex items-start gap-3">
+                            <div class="w-12 h-12 rounded-lg bg-gradient-to-br from-primary to-secondary flex items-center justify-center flex-shrink-0">
+                                <i class="fas fa-laptop text-white text-xl"></i>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <div class="font-semibold text-gray-900 truncate" id="preview-nama">Nama Perangkat</div>
+                                <div class="text-xs text-gray-600 mt-1">
+                                    <code class="bg-gray-200 px-2 py-0.5 rounded" id="preview-serial">Serial Number</code>
+                                </div>
+                                <div class="text-xs text-gray-600 mt-2" id="preview-lembaga">Lembaga</div>
+                                <div class="text-xs text-gray-600" id="preview-user"></div>
+                                <div class="text-xs text-gray-600 mt-1">
+                                    <strong>Kapasitas:</strong> <span id="preview-capacity">-</span> karakter
+                                </div>
+                                <div class="mt-3">
+                                    <span class="inline-block px-3 py-1 text-xs font-medium rounded-full bg-gray-200 text-gray-700" id="preview-status">Status</span>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
-        
-        <div style="border-top: 1px solid var(--border-color); padding-top: 2rem; display: flex; gap: 1rem; justify-content: flex-end;">
-            <a href="{{ route('admin.kelola-perangkat') }}" class="btn btn-secondary">
-                <i class="fas fa-times"></i> Batal
-            </a>
-            <button type="submit" class="btn btn-primary">
-                <i class="fas fa-save"></i> Simpan Perangkat
-            </button>
-        </div>
-    </form>
+    </div>
 </div>
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Elements
     const namaInput = document.getElementById('nama_device');
     const serialInput = document.getElementById('serial_number');
     const lembagaSelect = document.getElementById('lembaga_id');
@@ -156,7 +226,6 @@ document.addEventListener('DOMContentLoaded', function() {
     const userRequired = document.getElementById('user_required');
     const userHelp = document.getElementById('user_help');
     
-    // Preview elements
     const previewNama = document.getElementById('preview-nama');
     const previewSerial = document.getElementById('preview-serial');
     const previewLembaga = document.getElementById('preview-lembaga');
@@ -173,7 +242,7 @@ document.addEventListener('DOMContentLoaded', function() {
         
         const selectedUser = userSelect.options[userSelect.selectedIndex];
         if (selectedUser && selectedUser.value) {
-            previewUser.textContent = `| ${selectedUser.text}`;
+            previewUser.textContent = `👤 ${selectedUser.text}`;
         } else {
             previewUser.textContent = '';
         }
@@ -183,16 +252,14 @@ document.addEventListener('DOMContentLoaded', function() {
         const selectedStatus = statusSelect.options[statusSelect.selectedIndex];
         previewStatus.textContent = selectedStatus.text !== 'Pilih Status' ? selectedStatus.text : 'Status';
         
-        // Update badge color based on status
         const statusValue = statusSelect.value;
-        previewStatus.className = 'badge ' + (
-            statusValue === 'aktif' ? 'badge-success' :
-            statusValue === 'tidak_aktif' ? 'badge-danger' :
-            statusValue === 'maintenance' ? 'badge-warning' : 'badge-secondary'
+        previewStatus.className = 'inline-block px-3 py-1 text-xs font-medium rounded-full ' + (
+            statusValue === 'aktif' ? 'bg-green-100 text-green-700' :
+            statusValue === 'tidak_aktif' ? 'bg-red-100 text-red-700' :
+            statusValue === 'maintenance' ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-200 text-gray-700'
         );
     }
     
-    // Event listeners for preview
     namaInput.addEventListener('input', updatePreview);
     serialInput.addEventListener('input', updatePreview);
     lembagaSelect.addEventListener('change', updatePreview);
@@ -200,7 +267,6 @@ document.addEventListener('DOMContentLoaded', function() {
     statusSelect.addEventListener('change', updatePreview);
     capacityInput.addEventListener('input', updatePreview);
     
-    // Initialize preview
     updatePreview();
 });
 
@@ -217,23 +283,21 @@ function handleLembagaChange() {
     if (!lembagaId) {
         userSelect.disabled = true;
         userSelect.innerHTML = '<option value="">Pilih lembaga terlebih dahulu</option>';
-        userRequired.style.display = 'none';
-        userHelp.style.display = 'none';
+        userRequired.classList.add('hidden');
+        userHelp.classList.add('hidden');
         return;
     }
     
-    // Show/hide required indicator based on lembaga type
     if (lembagaType === 'Individu') {
-        userRequired.style.display = 'inline';
-        userHelp.style.display = 'block';
+        userRequired.classList.remove('hidden');
+        userHelp.classList.remove('hidden');
         userSelect.required = true;
     } else {
-        userRequired.style.display = 'none';
-        userHelp.style.display = 'none';
+        userRequired.classList.add('hidden');
+        userHelp.classList.add('hidden');
         userSelect.required = false;
     }
     
-    // Fetch users for selected lembaga
     fetch(`/admin/manajemen-perangkat/users-by-lembaga?lembaga_id=${lembagaId}`)
         .then(response => response.json())
         .then(users => {
@@ -246,6 +310,10 @@ function handleLembagaChange() {
                 option.textContent = `${user.nama_lengkap} (${user.email})`;
                 userSelect.appendChild(option);
             });
+            
+            // Trigger preview update
+            const event = new Event('change');
+            userSelect.dispatchEvent(event);
         })
         .catch(error => {
             console.error('Error fetching users:', error);

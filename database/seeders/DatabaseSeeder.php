@@ -12,11 +12,8 @@ class DatabaseSeeder extends Seeder
     {
         $this->call([
             LembagaSeeder::class,
-            BraillePatternsSeeder::class,
-            EduBrailleSeeder::class,
         ]);
-
-        // Create default admin user
+        
         User::firstOrCreate(
             ['email' => 'admin@inkluvia.com'],
             [
@@ -55,5 +52,10 @@ class DatabaseSeeder extends Seeder
                 'role' => 'user'
             ]
         );
+
+        $this->call([
+            BraillePatternsSeeder::class,
+            EduBrailleSeeder::class,
+        ]);
     }
 }

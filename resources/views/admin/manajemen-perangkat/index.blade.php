@@ -3,260 +3,139 @@
 @section('title', 'Manajemen Perangkat')
 
 @section('content')
-<div class="page-header">
-    <div style="display: flex; justify-content: space-between; align-items: center;">
+<div class="p-6">
+    <!-- Header -->
+    <div class="flex items-center justify-between mb-6">
         <div>
-            <h1 class="page-title">Manajemen Perangkat</h1>
-            <p class="page-subtitle">Kelola perangkat EduBraille dalam sistem Inkluvia</p>
+            <h1 class="text-2xl font-semibold text-gray-800">Manajemen Perangkat</h1>
+            <p class="text-gray-500">Kelola perangkat EduBraille dalam sistem Inkluvia</p>
         </div>
-        <a href="{{ route('admin.kelola-perangkat.create') }}" class="btn btn-primary">
-            <i class="fas fa-plus" style="margin-right: 0.5rem;"></i>
-            Tambah Perangkat
+        <a href="{{ route('admin.kelola-perangkat.create') }}" 
+           class="inline-flex items-center px-4 py-2 bg-primary text-white rounded-lg shadow hover:bg-primary/90 transition">
+            + Tambah Perangkat
         </a>
     </div>
-</div>
 
-<!-- Stats Grid -->
-<div class="stats-grid">
-    <div class="stat-card">
-        <div class="stat-icon">
-            <i class="fas fa-laptop"></i>
-        </div>
-        <div>
-            <div class="stat-number">{{ $stats['total_devices'] }}</div>
-            <div class="stat-label">Total Perangkat</div>
-        </div>
-    </div>
-    
-    <div class="stat-card">
-        <div class="stat-icon" style="background: linear-gradient(135deg, #10B981, #059669);">
-            <i class="fas fa-wifi"></i>
-        </div>
-        <div>
-            <div class="stat-number">{{ $stats['online_devices'] }}</div>
-            <div class="stat-label">Online</div>
-        </div>
-    </div>
-    
-    <div class="stat-card">
-        <div class="stat-icon" style="background: linear-gradient(135deg, #3B82F6, #1D4ED8);">
-            <i class="fas fa-check-circle"></i>
-        </div>
-        <div>
-            <div class="stat-number">{{ $stats['active_devices'] }}</div>
-            <div class="stat-label">Aktif</div>
-        </div>
-    </div>
-    
-    <div class="stat-card">
-        <div class="stat-icon" style="background: linear-gradient(135deg, #F59E0B, #D97706);">
-            <i class="fas fa-tools"></i>
-        </div>
-        <div>
-            <div class="stat-number">{{ $stats['maintenance_devices'] }}</div>
-            <div class="stat-label">Maintenance</div>
-        </div>
-    </div>
-</div>
-
-<!-- Filters -->
-<div class="filters">
-    <form method="GET" action="{{ route('admin.kelola-perangkat') }}">
-        <div class="filters-grid">
-            <div class="form-group" style="margin-bottom: 0;">
-                <label for="search" class="form-label">Cari Perangkat</label>
-                <input type="text" id="search" name="search" class="form-input" 
-                       placeholder="Nama, serial, lembaga..." value="{{ request('search') }}">
-            </div>
-            
-            <div class="form-group" style="margin-bottom: 0;">
-                <label for="status" class="form-label">Filter Status</label>
-                <select id="status" name="status" class="form-select">
-                    <option value="">Semua Status</option>
-                    <option value="aktif" {{ request('status') === 'aktif' ? 'selected' : '' }}>Aktif</option>
-                    <option value="tidak_aktif" {{ request('status') === 'tidak_aktif' ? 'selected' : '' }}>Tidak Aktif</option>
-                    <option value="maintenance" {{ request('status') === 'maintenance' ? 'selected' : '' }}>Maintenance</option>
-                </select>
-            </div>
-            
-            <div class="form-group" style="margin-bottom: 0;">
-                <label for="connection" class="form-label">Filter Koneksi</label>
-                <select id="connection" name="connection" class="form-select">
-                    <option value="">Semua Koneksi</option>
-                    <option value="online" {{ request('connection') === 'online' ? 'selected' : '' }}>Online</option>
-                    <option value="offline" {{ request('connection') === 'offline' ? 'selected' : '' }}>Offline</option>
-                </select>
-            </div>
-            
-            <div class="form-group" style="margin-bottom: 0;">
-                <label for="lembaga" class="form-label">Filter Lembaga</label>
-                <select id="lembaga" name="lembaga" class="form-select">
-                    <option value="">Semua Lembaga</option>
-                    @foreach($lembagas as $lembaga)
-                    <option value="{{ $lembaga->id }}" {{ request('lembaga') == $lembaga->id ? 'selected' : '' }}>
-                        {{ $lembaga->nama }}
-                    </option>
-                    @endforeach
-                </select>
-            </div>
-            
-            <div class="form-group" style="margin-bottom: 0;">
-                <label class="form-label">&nbsp;</label>
-                <div style="display: flex; gap: 0.5rem;">
-                    <button type="submit" class="btn btn-primary">
-                        <i class="fas fa-search"></i> Cari
-                    </button>
-                    <a href="{{ route('admin.kelola-perangkat') }}" class="btn btn-secondary">
-                        <i class="fas fa-times"></i> Reset
-                    </a>
+    <!-- Statistik -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        <div class="bg-gradient-to-r from-purple-500 to-purple-400 text-white p-4 rounded-xl shadow">
+            <div class="flex items-center space-x-3">
+                <i class="fas fa-laptop text-2xl"></i>
+                <div>
+                    <p class="text-sm opacity-80">Total Perangkat</p>
+                    <p class="text-xl font-bold">0</p>
                 </div>
             </div>
         </div>
-        
-        <input type="hidden" name="sort_order" value="{{ request('sort_order', 'desc') }}">
-    </form>
+        <div class="bg-gradient-to-r from-green-500 to-green-400 text-white p-4 rounded-xl shadow">
+            <div class="flex items-center space-x-3">
+                <i class="fas fa-wifi text-2xl"></i>
+                <div>
+                    <p class="text-sm opacity-80">Online</p>
+                    <p class="text-xl font-bold">0</p>
+                </div>
+            </div>
+        </div>
+        <div class="bg-gradient-to-r from-blue-500 to-blue-400 text-white p-4 rounded-xl shadow">
+            <div class="flex items-center space-x-3">
+                <i class="fas fa-check-circle text-2xl"></i>
+                <div>
+                    <p class="text-sm opacity-80">Aktif</p>
+                    <p class="text-xl font-bold">0</p>
+                </div>
+            </div>
+        </div>
+        <div class="bg-gradient-to-r from-yellow-600 to-yellow-500 text-white p-4 rounded-xl shadow">
+            <div class="flex items-center space-x-3">
+                <i class="fas fa-tools text-2xl"></i>
+                <div>
+                    <p class="text-sm opacity-80">Maintenance</p>
+                    <p class="text-xl font-bold">0</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filter -->
+    <div class="bg-white p-4 rounded-xl shadow mb-6">
+        <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
+            <input type="text" placeholder="Cari perangkat..."
+                   class="border rounded-lg px-3 py-2 w-full focus:ring-primary focus:border-primary">
+            <select class="border rounded-lg px-3 py-2 w-full focus:ring-primary focus:border-primary">
+                <option>Semua Status</option>
+            </select>
+            <select class="border rounded-lg px-3 py-2 w-full focus:ring-primary focus:border-primary">
+                <option>Semua Koneksi</option>
+            </select>
+            <select class="border rounded-lg px-3 py-2 w-full focus:ring-primary focus:border-primary">
+                <option>Semua Lembaga</option>
+            </select>
+            <div class="flex space-x-2">
+                <button class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90">Cari</button>
+                <button class="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300">Reset</button>
+            </div>
+        </div>
+    </div>
 </div>
 
 <!-- Devices Table -->
-<div class="table-container">
-    <table class="table">
-        <thead>
+<div class="overflow-x-auto rounded-lg shadow">
+    <table class="min-w-full border border-gray-200 text-sm">
+        <thead class="bg-gray-100">
             <tr>
-                <th>Perangkat</th>
-                <th>Serial Number</th>
-                <th>Lembaga</th>
-                <th>Pengguna</th>
-                <th>Status</th>
-                <th>Koneksi</th>
-                <th>Terakhir Online</th>
-                <th>Aksi</th>
+                <th class="px-4 py-3 text-left font-semibold text-gray-700">Perangkat</th>
+                <th class="px-4 py-3 text-left font-semibold text-gray-700">Serial Number</th>
+                <th class="px-4 py-3 text-left font-semibold text-gray-700">Lembaga</th>
+                <th class="px-4 py-3 text-left font-semibold text-gray-700">Pengguna</th>
+                <th class="px-4 py-3 text-center font-semibold text-gray-700">Status</th>
+                <th class="px-4 py-3 text-center font-semibold text-gray-700">Koneksi</th>
+                <th class="px-4 py-3 text-center font-semibold text-gray-700">Terakhir Online</th>
+                <th class="px-4 py-3 text-center font-semibold text-gray-700">Aksi</th>
             </tr>
         </thead>
-        <tbody>
-            @forelse($devices as $device)
-            <tr>
-                <td>
-                    <div style="display: flex; align-items: center;">
-                        <div style="
-                            width: 40px; 
-                            height: 40px; 
-                            border-radius: 8px; 
-                            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color)); 
-                            color: white; 
-                            display: flex; 
-                            align-items: center; 
-                            justify-content: center; 
-                            font-weight: 600; 
-                            margin-right: 0.75rem;
-                        ">
-                            <i class="fas fa-laptop"></i>
-                        </div>
+        <tbody class="divide-y divide-gray-200">
+            <tr class="hover:bg-gray-50">
+                <td class="px-4 py-3 flex items-center gap-2">
+                    <span class="text-purple-600 text-lg"><i class="fas fa-laptop"></i></span>
+                    <span class="font-medium">EduBraille 1</span>
+                </td>
+                <td class="px-4 py-3">EDUE26AA4</td>
+                <td class="px-4 py-3">Pengguna Mandiri<br><span class="text-xs text-gray-500">Individu</span></td>
+                <td class="px-4 py-3">
+                    <div class="flex items-center gap-2">
+                        <span class="w-6 h-6 flex items-center justify-center bg-purple-600 text-white rounded-full text-xs">B</span>
                         <div>
-                            <div style="font-weight: 600;">{{ $device->nama_device }}</div>
-                            @if($device->keterangan)
-                            <div style="font-size: 0.75rem; color: var(--text-light);">{{ Str::limit($device->keterangan, 30) }}</div>
-                            @endif
+                            <p class="font-medium">Budi Santoso</p>
+                            <p class="text-xs text-gray-500">budisantoso@gmail.com</p>
                         </div>
                     </div>
                 </td>
-                <td>
-                    <code style="background: var(--gray-100); padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.875rem;">
-                        {{ $device->serial_number }}
-                    </code>
+                <td class="px-4 py-3 text-center">
+                    <span class="px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-700">Aktif</span>
                 </td>
-                <td>
-                    <div>
-                        <div style="font-weight: 600;">{{ $device->lembaga->nama ?? '-' }}</div>
-                        @if($device->lembaga)
-                        <div style="font-size: 0.75rem; color: var(--text-light);">{{ $device->lembaga->type }}</div>
-                        @endif
-                    </div>
+                <td class="px-4 py-3 text-center">
+                    <span class="px-2 py-1 text-xs font-medium rounded-full bg-red-100 text-red-600">Offline</span>
                 </td>
-                <td>
-                    @if($device->user)
-                    <div style="display: flex; align-items: center;">
-                        <div class="user-avatar" style="width: 24px; height: 24px; font-size: 0.625rem; margin-right: 0.5rem;">
-                            {{ strtoupper(substr($device->user->nama_lengkap, 0, 1)) }}
-                        </div>
-                        <div>
-                            <div style="font-size: 0.875rem; font-weight: 600;">{{ $device->user->nama_lengkap }}</div>
-                            <div style="font-size: 0.75rem; color: var(--text-light);">{{ $device->user->email }}</div>
-                        </div>
-                    </div>
-                    @else
-                    <span style="color: var(--text-light); font-style: italic;">Tidak ada</span>
-                    @endif
-                </td>
-                <td>
-                    <span class="badge badge-{{ $device->status_color }}">
-                        {{ ucfirst(str_replace('_', ' ', $device->status)) }}
-                    </span>
-                </td>
-                <td>
-                    @if($device->connection_status === 'online')
-                    <span class="badge badge-success">
-                        <i class="fas fa-wifi" style="margin-right: 0.25rem;"></i>
-                        Online
-                    </span>
-                    @else
-                    <span class="badge badge-danger">
-                        <i class="fas fa-wifi" style="margin-right: 0.25rem; opacity: 0.5;"></i>
-                        Offline
-                    </span>
-                    @endif
-                </td>
-                <td>
-                    @if($device->last_connection)
-                    <div style="font-size: 0.875rem;">{{ $device->last_connection->format('d/m/Y') }}</div>
-                    <div style="font-size: 0.75rem; color: var(--text-light);">{{ $device->last_connection->format('H:i') }}</div>
-                    @else
-                    <span style="color: var(--text-light); font-style: italic;">Belum pernah</span>
-                    @endif
-                </td>
-                <td>
-                    <div style="display: flex; gap: 0.25rem; flex-wrap: wrap;">
-                        <button onclick="pingDevice('{{ $device->id }}')" class="btn btn-primary btn-sm" title="Ping Device">
-                            <i class="fas fa-satellite-dish"></i>
-                        </button>
-                        <button onclick="requestStatus('{{ $device->id }}')" class="btn btn-secondary btn-sm" title="Request Status">
-                            <i class="fas fa-info-circle"></i>
-                        </button>
-                        <a href="{{ route('admin.kelola-perangkat.edit', $device) }}" class="btn btn-secondary btn-sm" title="Edit">
-                            <i class="fas fa-edit"></i>
-                        </a>
-                        <form method="POST" action="{{ route('admin.kelola-perangkat.destroy', $device) }}" 
-                              style="display: inline;" 
-                              onsubmit="return confirm('Apakah Anda yakin ingin menghapus perangkat ini?')">
-                            @csrf
-                            @method('DELETE')
-                            <button type="submit" class="btn btn-danger btn-sm" title="Hapus">
-                                <i class="fas fa-trash"></i>
-                            </button>
-                        </form>
-                    </div>
+                <td class="px-4 py-3 text-center text-gray-500 italic">Belum pernah</td>
+                <td class="px-4 py-3 text-center space-x-2">
+                    <button class="text-blue-600 hover:text-blue-800" title="Detail"><i class="fas fa-info-circle"></i></button>
+                    <button class="text-green-600 hover:text-green-800" title="Edit"><i class="fas fa-edit"></i></button>
+                    <button class="text-red-600 hover:text-red-800" title="Hapus"><i class="fas fa-trash"></i></button>
                 </td>
             </tr>
-            @empty
-            <tr>
-                <td colspan="8" style="text-align: center; padding: 2rem; color: var(--text-light);">
-                    <i class="fas fa-laptop" style="font-size: 3rem; margin-bottom: 1rem; opacity: 0.3; display: block;"></i>
-                    Tidak ada perangkat ditemukan
-                </td>
-            </tr>
-            @endforelse
         </tbody>
     </table>
 </div>
 
 <!-- Pagination -->
 @if($devices->hasPages())
-<div class="pagination">
+<div class="pagination mt-4">
     {{ $devices->links() }}
 </div>
 @endif
 
 <!-- Summary -->
-<div style="margin-top: 1rem; text-align: center; color: var(--text-light); font-size: 0.875rem;">
+<div class="mt-2 text-center text-gray-500 text-sm">
     Menampilkan {{ $devices->firstItem() ?? 0 }} - {{ $devices->lastItem() ?? 0 }} dari {{ $devices->total() }} perangkat
 </div>
 
@@ -270,17 +149,8 @@ function pingDevice(deviceId) {
         }
     })
     .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            alert('✅ ' + data.message);
-        } else {
-            alert('❌ ' + data.message);
-        }
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        alert('❌ Terjadi kesalahan saat mengirim ping');
-    });
+    .then(data => alert((data.success ? '✅ ' : '❌ ') + data.message))
+    .catch(() => alert('❌ Terjadi kesalahan saat mengirim ping'));
 }
 
 function requestStatus(deviceId) {
@@ -292,17 +162,8 @@ function requestStatus(deviceId) {
         }
     })
     .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            alert('✅ ' + data.message);
-        } else {
-            alert('❌ ' + data.message);
-        }
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        alert('❌ Terjadi kesalahan saat meminta status');
-    });
+    .then(data => alert((data.success ? '✅ ' : '❌ ') + data.message))
+    .catch(() => alert('❌ Terjadi kesalahan saat meminta status'));
 }
 </script>
 @endsection

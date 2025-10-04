@@ -33,7 +33,6 @@
             
             <nav aria-label="Navigasi utama" class="nav-links">
                 <a href="#beranda" class="nav-link active">Beranda</a>
-                <a href="#showcase" class="nav-link">Fitur</a>
                 <a href="#tentang" class="nav-link">Masalah</a>
                 <a href="#solusi" class="nav-link">Solusi</a>
                 <a href="#kontak" class="nav-link">Kontak</a>
@@ -78,31 +77,6 @@
                         <i class="fas fa-rocket" style="margin-right: 0.5rem;"></i>
                         Mulai Belajar
                     </button>
-                </div>
-            </div>
-        </section>
-
-        <!-- Visual Showcase Section -->
-        <section class="section visual-showcase" id="showcase">
-            <div class="showcase-content">
-                <div class="content-left">
-                    <h2>
-                        Satu<br>
-                        Sentuhan,<br>
-                        Sejuta<br>
-                        Peluang.
-                    </h2>
-                    <p class="subtitle">Platform Edukasi Berbasis Web & Braille Digital</p>
-                    <p class="description">
-                        Belajar mandiri untuk tunanetra kini lebih mudah dengan kombinasi 
-                        web app dan perangkat braille display karya anak bangsa.
-                    </p>
-                    <a href="{{ route('login') }}" class="btn-primary">
-                        Mulai Belajar
-                    </a>
-                </div>
-                <div class="visual-right">
-                    <img src="{{ asset('assets/mockup.png') }}" alt="Braille display dan aplikasi Inkluvia" />
                 </div>
             </div>
         </section>
@@ -185,7 +159,7 @@
         <section class="section community" id="kontak">
             <div class="section-container">
                 <h2>Dibangun Bersama Komunitas</h2>
-                <p class="desc animate-on-scroll">Inkluvia dikembangkan sejak 2015 bersama guru SLB, relawan, dan komunitas netra. Bukan sekadar teknologi untuk tunanetra, tapi solusi yang dirancang bersama mereka.</p>
+                <p class="desc animate-on-scroll">Inkluvia bekerja sama dengan Refreshable Braille lokal yang telah dikembangkan sejak 2015 bersama guru SLB, relawan, dan komunitas netra. Bukan sekadar teknologi untuk tunanetra, tapi solusi yang dirancang bersama mereka.</p>
                 <div class="stats">
                     <div class="stat animate-on-scroll">
                         <span class="number">2015</span>

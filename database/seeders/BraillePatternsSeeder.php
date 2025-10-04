@@ -46,7 +46,7 @@ class BraillePatternsSeeder extends Seeder
             ['category' => 'latin', 'character' => 'a', 'braille_unicode' => '⠁', 'dots_binary' => '100000', 'dots_decimal' => 32, 'description' => 'Huruf a (Latin kecil)'],
             ['category' => 'latin', 'character' => 'b', 'braille_unicode' => '⠃', 'dots_binary' => '110000', 'dots_decimal' => 48, 'description' => 'Huruf b (Latin kecil)'],
             ['category' => 'latin', 'character' => 'c', 'braille_unicode' => '⠉', 'dots_binary' => '100100', 'dots_decimal' => 36, 'description' => 'Huruf c (Latin kecil)'],
-            ['category' => 'latin', 'character' => 'd', 'braille_unicode' => '⠙', 'dots_binary' => '110100', 'dots_decimal' => 52, 'description' => 'Huruf d (Latin kecil)'],
+            ['category' => 'latin', 'character' => 'd', 'braille_unicode' => '⠙', 'dots_binary' => '100110', 'dots_decimal' => 52, 'description' => 'Huruf d (Latin kecil)'],
             ['category' => 'latin', 'character' => 'e', 'braille_unicode' => '⠑', 'dots_binary' => '100010', 'dots_decimal' => 34, 'description' => 'Huruf e (Latin kecil)'],
             ['category' => 'latin', 'character' => 'f', 'braille_unicode' => '⠋', 'dots_binary' => '110010', 'dots_decimal' => 50, 'description' => 'Huruf f (Latin kecil)'],
             ['category' => 'latin', 'character' => 'g', 'braille_unicode' => '⠛', 'dots_binary' => '110110', 'dots_decimal' => 54, 'description' => 'Huruf g (Latin kecil)'],

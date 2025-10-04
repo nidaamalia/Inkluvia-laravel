@@ -15,7 +15,7 @@ return new class extends Migration
             $table->id();
             $table->string('category'); // latin, angka, hijaiyah, harakat, simbol
             $table->string('character'); // huruf/angka/simbol asli, case sensitive
-            $table->string('braille_unicode'); // Unicode Braille Pattern U+2800–U+28FF
+            $table->string('braille_unicode')->charset('utf8mb4');
             $table->string('dots_binary'); // misal "100000"
             $table->integer('dots_decimal'); // konversi dari binary
             $table->text('description')->nullable();

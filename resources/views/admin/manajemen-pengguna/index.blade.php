@@ -3,180 +3,142 @@
 @section('title', 'Manajemen Pengguna')
 
 @section('content')
-<div class="page-header">
-    <div style="display: flex; justify-content: space-between; align-items: center;">
-        <div>
-            <h1 class="page-title">Manajemen Pengguna</h1>
-            <p class="page-subtitle">Kelola pengguna sistem Inkluvia</p>
-        </div>
-        <a href="{{ route('admin.kelola-pengguna.create') }}" class="btn btn-primary">
-            <i class="fas fa-plus" style="margin-right: 0.5rem;"></i>
-            Tambah Pengguna
-        </a>
+<div class="flex items-center justify-between mb-6">
+    <div>
+        <h1 class="text-2xl font-bold text-gray-800">Manajemen Pengguna</h1>
+        <p class="text-gray-500">Kelola pengguna sistem Inkluvia</p>
     </div>
+    <a href="{{ route('admin.kelola-pengguna.create') }}" 
+       class="inline-flex items-center px-4 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary-dark shadow">
+        <i class="fas fa-plus mr-2"></i>
+        Tambah Pengguna
+    </a>
 </div>
 
 <!-- Filters -->
-<div class="filters">
+<div class="bg-white p-4 rounded-lg shadow mb-6">
     <form method="GET" action="{{ route('admin.kelola-pengguna') }}">
-        <div class="filters-grid">
-            <div class="form-group" style="margin-bottom: 0;">
-                <label for="search" class="form-label">Cari Pengguna</label>
-                <input type="text" id="search" name="search" class="form-input" 
-                       placeholder="Nama, email..." value="{{ request('search') }}">
+        <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
+            <div>
+                <label for="search" class="block text-sm font-medium text-gray-700">Cari Pengguna</label>
+                <input type="text" id="search" name="search" value="{{ request('search') }}"
+                    class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm"
+                    placeholder="Nama, email...">
             </div>
-            
-            <div class="form-group" style="margin-bottom: 0;">
-                <label for="role" class="form-label">Filter Role</label>
-                <select id="role" name="role" class="form-select">
+
+            <div>
+                <label for="role" class="block text-sm font-medium text-gray-700">Filter Role</label>
+                <select id="role" name="role"
+                    class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm">
                     <option value="">Semua Role</option>
                     <option value="admin" {{ request('role') === 'admin' ? 'selected' : '' }}>Admin</option>
                     <option value="user" {{ request('role') === 'user' ? 'selected' : '' }}>User</option>
                 </select>
             </div>
-            
-            <div class="form-group" style="margin-bottom: 0;">
-                <label for="lembaga" class="form-label">Filter Lembaga</label>
-                <select id="lembaga" name="lembaga" class="form-select">
+
+            <div>
+                <label for="lembaga" class="block text-sm font-medium text-gray-700">Filter Lembaga</label>
+                <select id="lembaga" name="lembaga"
+                    class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm">
                     <option value="">Semua Lembaga</option>
                     @foreach($lembagas as $lembaga)
-                    <option value="{{ $lembaga->id }}" {{ request('lembaga') == $lembaga->id ? 'selected' : '' }}>
-                        {{ $lembaga->nama }}
-                    </option>
+                        <option value="{{ $lembaga->id }}" {{ request('lembaga') == $lembaga->id ? 'selected' : '' }}>
+                            {{ $lembaga->nama }}
+                        </option>
                     @endforeach
                 </select>
             </div>
-            
-            <div class="form-group" style="margin-bottom: 0;">
-                <label for="sort_by" class="form-label">Urutkan</label>
-                <select id="sort_by" name="sort_by" class="form-select">
+
+            <div>
+                <label for="sort_by" class="block text-sm font-medium text-gray-700">Urutkan</label>
+                <select id="sort_by" name="sort_by"
+                    class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm">
                     <option value="created_at" {{ request('sort_by') === 'created_at' ? 'selected' : '' }}>Tanggal Dibuat</option>
                     <option value="nama_lengkap" {{ request('sort_by') === 'nama_lengkap' ? 'selected' : '' }}>Nama</option>
                     <option value="email" {{ request('sort_by') === 'email' ? 'selected' : '' }}>Email</option>
                     <option value="role" {{ request('sort_by') === 'role' ? 'selected' : '' }}>Role</option>
                 </select>
             </div>
-            
-            <div class="form-group" style="margin-bottom: 0;">
-                <label class="form-label">&nbsp;</label>
-                <div style="display: flex; gap: 0.5rem;">
-                    <button type="submit" class="btn btn-primary">
-                        <i class="fas fa-search"></i> Cari
-                    </button>
-                    <a href="{{ route('admin.kelola-pengguna') }}" class="btn btn-secondary">
-                        <i class="fas fa-times"></i> Reset
-                    </a>
-                </div>
+
+            <div class="flex items-end space-x-2">
+                <button type="submit" 
+                        class="px-4 py-2 bg-primary text-white text-sm rounded-lg shadow hover:bg-primary-dark">
+                    Cari
+                </button>
+                <a href="{{ route('admin.kelola-pengguna') }}" 
+                   class="px-4 py-2 bg-gray-200 text-gray-700 text-sm rounded-lg shadow hover:bg-gray-300">
+                    Reset
+                </a>
             </div>
         </div>
-        
         <input type="hidden" name="sort_order" value="{{ request('sort_order', 'desc') }}">
     </form>
 </div>
 
 <!-- Users Table -->
-<div class="table-container">
-    <table class="table">
-        <thead>
+<div class="overflow-x-auto bg-white rounded-lg shadow">
+    <table class="min-w-full divide-y divide-gray-200">
+        <thead class="bg-gray-50">
             <tr>
-                <th>
-                    <a href="{{ request()->fullUrlWithQuery(['sort_by' => 'nama_lengkap', 'sort_order' => request('sort_order') === 'asc' ? 'desc' : 'asc']) }}" 
-                       style="color: inherit; text-decoration: none; display: flex; align-items: center;">
-                        Nama Lengkap
-                        @if(request('sort_by') === 'nama_lengkap')
-                            <i class="fas fa-sort-{{ request('sort_order') === 'asc' ? 'up' : 'down' }}" style="margin-left: 0.5rem;"></i>
-                        @else
-                            <i class="fas fa-sort" style="margin-left: 0.5rem; opacity: 0.3;"></i>
-                        @endif
-                    </a>
-                </th>
-                <th>
-                    <a href="{{ request()->fullUrlWithQuery(['sort_by' => 'email', 'sort_order' => request('sort_order') === 'asc' ? 'desc' : 'asc']) }}" 
-                       style="color: inherit; text-decoration: none; display: flex; align-items: center;">
-                        Email
-                        @if(request('sort_by') === 'email')
-                            <i class="fas fa-sort-{{ request('sort_order') === 'asc' ? 'up' : 'down' }}" style="margin-left: 0.5rem;"></i>
-                        @else
-                            <i class="fas fa-sort" style="margin-left: 0.5rem; opacity: 0.3;"></i>
-                        @endif
-                    </a>
-                </th>
-                <th>Lembaga</th>
-                <th>
-                    <a href="{{ request()->fullUrlWithQuery(['sort_by' => 'role', 'sort_order' => request('sort_order') === 'asc' ? 'desc' : 'asc']) }}" 
-                       style="color: inherit; text-decoration: none; display: flex; align-items: center;">
-                        Role
-                        @if(request('sort_by') === 'role')
-                            <i class="fas fa-sort-{{ request('sort_order') === 'asc' ? 'up' : 'down' }}" style="margin-left: 0.5rem;"></i>
-                        @else
-                            <i class="fas fa-sort" style="margin-left: 0.5rem; opacity: 0.3;"></i>
-                        @endif
-                    </a>
-                </th>
-                <th>Jenis Kelamin</th>
-                <th>
-                    <a href="{{ request()->fullUrlWithQuery(['sort_by' => 'created_at', 'sort_order' => request('sort_order') === 'asc' ? 'desc' : 'asc']) }}" 
-                       style="color: inherit; text-decoration: none; display: flex; align-items: center;">
-                        Bergabung
-                        @if(request('sort_by') === 'created_at')
-                            <i class="fas fa-sort-{{ request('sort_order') === 'asc' ? 'up' : 'down' }}" style="margin-left: 0.5rem;"></i>
-                        @else
-                            <i class="fas fa-sort" style="margin-left: 0.5rem; opacity: 0.3;"></i>
-                        @endif
-                    </a>
-                </th>
-                <th>Aksi</th>
+                <th class="px-4 py-2 text-left text-sm font-semibold text-gray-700">Nama Lengkap</th>
+                <th class="px-4 py-2 text-left text-sm font-semibold text-gray-700">Email</th>
+                <th class="px-4 py-2 text-left text-sm font-semibold text-gray-700">Lembaga</th>
+                <th class="px-4 py-2 text-left text-sm font-semibold text-gray-700">Role</th>
+                <th class="px-4 py-2 text-left text-sm font-semibold text-gray-700">Jenis Kelamin</th>
+                <th class="px-4 py-2 text-left text-sm font-semibold text-gray-700">Bergabung</th>
+                <th class="px-4 py-2 text-center text-sm font-semibold text-gray-700">Aksi</th>
             </tr>
         </thead>
-        <tbody>
+        <tbody class="divide-y divide-gray-200 text-sm">
             @forelse($users as $user)
-            <tr>
-                <td>
-                    <div style="display: flex; align-items: center;">
-                        <div class="user-avatar" style="width: 32px; height: 32px; font-size: 0.75rem; margin-right: 0.75rem;">
+                <tr>
+                    <td class="px-4 py-2 flex items-center space-x-3">
+                        <div class="flex-shrink-0 w-8 h-8 rounded-full bg-secondary-light flex items-center justify-center text-primary font-semibold">
                             {{ strtoupper(substr($user->nama_lengkap, 0, 1)) }}
                         </div>
                         <div>
-                            <div style="font-weight: 600;">{{ $user->nama_lengkap }}</div>
-                            <div style="font-size: 0.75rem; color: var(--text-light);">{{ $user->name }}</div>
+                            <div class="font-medium text-gray-900">{{ $user->nama_lengkap }}</div>
+                            <div class="text-xs text-gray-500">{{ $user->name }}</div>
                         </div>
-                    </div>
-                </td>
-                <td>{{ $user->email }}</td>
-                <td>{{ $user->lembaga->nama ?? '-' }}</td>
-                <td>
-                    <span class="badge {{ $user->role === 'admin' ? 'badge-primary' : 'badge-success' }}">
-                        {{ ucfirst($user->role) }}
-                    </span>
-                </td>
-                <td>{{ $user->jenis_kelamin === 'Laki-laki' ? 'Laki-laki' : 'Perempuan' }}</td>
-                <td>{{ $user->created_at->format('d/m/Y') }}</td>
-                <td>
-                    <div style="display: flex; gap: 0.5rem;">
-                        <a href="{{ route('admin.kelola-pengguna.edit', $user) }}" class="btn btn-secondary btn-sm">
-                            <i class="fas fa-edit"></i>
-                        </a>
-                        @if($user->id !== auth()->id())
-                        <form method="POST" action="{{ route('admin.kelola-pengguna.destroy', $user) }}" 
-                              style="display: inline;" 
-                              onsubmit="return confirm('Apakah Anda yakin ingin menghapus pengguna ini?')">
-                            @csrf
-                            @method('DELETE')
-                            <button type="submit" class="btn btn-danger btn-sm">
-                                <i class="fas fa-trash"></i>
-                            </button>
-                        </form>
-                        @endif
-                    </div>
-                </td>
-            </tr>
+                    </td>
+                    <td class="px-4 py-2">{{ $user->email }}</td>
+                    <td class="px-4 py-2">{{ $user->lembaga->nama ?? '-' }}</td>
+                    <td class="px-4 py-2">
+                        <span class="px-2 py-1 text-xs font-medium rounded-full 
+                                     {{ $user->role === 'admin' 
+                                        ? 'bg-primary-light text-white' 
+                                        : 'bg-green-100 text-green-700' }}">
+                            {{ ucfirst($user->role) }}
+                        </span>
+                    </td>
+                    <td class="px-4 py-2">{{ $user->jenis_kelamin ?? '-' }}</td>
+                    <td class="px-4 py-2">{{ $user->created_at->format('d/m/Y') }}</td>
+                    <td class="px-4 py-2 text-center">
+                        <div class="flex justify-center space-x-2">
+                            <a href="{{ route('admin.kelola-pengguna.edit', $user) }}" 
+                               class="p-2 bg-secondary text-white rounded hover:bg-secondary-light">
+                                <i class="fas fa-edit"></i>
+                            </a>
+                            @if($user->id !== auth()->id())
+                            <form method="POST" action="{{ route('admin.kelola-pengguna.destroy', $user) }}" 
+                                  onsubmit="return confirm('Apakah Anda yakin ingin menghapus pengguna ini?')">
+                                @csrf
+                                @method('DELETE')
+                                <button type="submit" class="p-2 bg-red-500 text-white rounded hover:bg-red-600">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </form>
+                            @endif
+                        </div>
+                    </td>
+                </tr>
             @empty
-            <tr>
-                <td colspan="7" style="text-align: center; padding: 2rem; color: var(--text-light);">
-                    <i class="fas fa-users" style="font-size: 3rem; margin-bottom: 1rem; opacity: 0.3; display: block;"></i>
-                    Tidak ada pengguna ditemukan
-                </td>
-            </tr>
+                <tr>
+                    <td colspan="7" class="px-4 py-6 text-center text-gray-500">
+                        <i class="fas fa-users text-3xl mb-2 opacity-30 block"></i>
+                        Tidak ada pengguna ditemukan
+                    </td>
+                </tr>
             @endforelse
         </tbody>
     </table>
@@ -184,13 +146,13 @@
 
 <!-- Pagination -->
 @if($users->hasPages())
-<div class="pagination">
-    {{ $users->links() }}
-</div>
+    <div class="mt-4">
+        {{ $users->links() }}
+    </div>
 @endif
 
 <!-- Summary -->
-<div style="margin-top: 1rem; text-align: center; color: var(--text-light); font-size: 0.875rem;">
+<div class="mt-2 text-center text-sm text-gray-500">
     Menampilkan {{ $users->firstItem() ?? 0 }} - {{ $users->lastItem() ?? 0 }} dari {{ $users->total() }} pengguna
 </div>
 @endsection

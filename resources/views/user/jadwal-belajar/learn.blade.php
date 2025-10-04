@@ -930,11 +930,30 @@ let lastSentSignature = '';
 let isSending = false;
 
 // Function to send chunk decimal values to devices
+// Function to send chunk decimal values to devices
 async function sendToDevices(chunkText, decimalValues) {
     const decimals = Array.isArray(decimalValues) ? decimalValues : [];
-    const signature = JSON.stringify({ chunkText, decimals });
+    
+    // PERBAIKAN: Pastikan format decimal values konsisten
+    // Setiap nilai harus 2 digit dengan padding '0' di depan
+    const paddedDecimals = decimals.map(val => {
+        const numStr = String(val);
+        return numStr.padStart(2, '0'); // Pastikan selalu 2 digit: 1 -> '01', 12 -> '12'
+    });
+    
+    // PENTING: Cek format yang diharapkan perangkat
+    // Opsi 1: Array tetap array
+    const decimalArray = paddedDecimals;
+    
+    // Opsi 2: Concatenated string tanpa spasi (misalnya: "011205")
+    const decimalString = paddedDecimals.join('');
+    
+    // Opsi 3: String dengan spasi (misalnya: "01 12 05")
+    const decimalStringSpaced = paddedDecimals.join(' ');
+    
+    const signature = JSON.stringify({ chunkText, decimals: paddedDecimals });
 
-    if ((typeof chunkText !== 'string' || chunkText.length === 0) && decimals.length === 0) {
+    if ((typeof chunkText !== 'string' || chunkText.length === 0) && paddedDecimals.length === 0) {
         return;
     }
 
@@ -956,7 +975,12 @@ async function sendToDevices(chunkText, decimalValues) {
             body: JSON.stringify({
                 text: chunkText,
                 chunk_text: chunkText,
-                decimal_values: decimals,
+                
+                // PILIH SALAH SATU FORMAT INI sesuai yang diharapkan perangkat:
+                decimal_values: paddedDecimals,        // Format: ["01", "12", "05"]
+                decimal: decimalString,                 // Format: "011205"
+                decimal_spaced: decimalStringSpaced,   // Format: "01 12 05"
+                
                 device_ids: Array.isArray(selectedDeviceIds) ? selectedDeviceIds : [],
                 device_serials: Array.isArray(selectedDeviceSerials) ? selectedDeviceSerials : []
             })
@@ -964,6 +988,8 @@ async function sendToDevices(chunkText, decimalValues) {
         
         const data = await response.json();
         console.log('Text sent to devices:', data);
+        console.log('Decimal values sent:', paddedDecimals); // Debug log
+        console.log('Decimal string sent:', decimalString);   // Debug log
         
         // Update MQTT status
         const mqttStatus = document.getElementById('mqtt-status');
@@ -971,7 +997,6 @@ async function sendToDevices(chunkText, decimalValues) {
             mqttStatus.textContent = 'Terkirim ke ' + data.results.length + ' perangkat';
             mqttStatus.className = 'mt-6 p-3 rounded-lg text-center text-sm font-medium bg-green-100 text-green-800';
             
-            // Reset status after 3 seconds
             setTimeout(() => {
                 mqttStatus.textContent = 'Siap mengirim teks ke perangkat';
                 mqttStatus.className = 'mt-6 p-3 rounded-lg text-center text-sm font-medium bg-gray-100 text-gray-700';
@@ -981,7 +1006,6 @@ async function sendToDevices(chunkText, decimalValues) {
     } catch (error) {
         console.error('Failed to send text to devices:', error);
         
-        // Show error status
         const mqttStatus = document.getElementById('mqtt-status');
         if (mqttStatus) {
             mqttStatus.textContent = 'Gagal mengirim teks ke perangkat';
