@@ -48,7 +48,9 @@ DB_PASSWORD=
 - Jalankan migrasi dan seeder:
 ```bash
 php artisan migrate
+php artisan db:seed --class=DatabaseSeeder
 php artisan db:seed
+
 ```
 
 python -m pip install pymupdf
