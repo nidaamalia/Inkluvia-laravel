@@ -13,7 +13,7 @@ class GeminiPdfProcessorService
 
     public function __construct()
     {
-        $this->pythonScriptPath = base_path('app/Services/gemini_pdf_processor.py');
+        $this->pythonScriptPath = base_path('app/Services/pdf_to_json.py');
         $this->tempDir = storage_path('app/temp/gemini_processing');
         
         if (!file_exists($this->tempDir)) {
@@ -74,14 +74,33 @@ class GeminiPdfProcessorService
                 $params[] = '--edisi ' . escapeshellarg($options['edisi']);
             }
             
-            // Add image captioning option (default: enabled)
-            if (!isset($options['caption_images']) || $options['caption_images']) {
-                $params[] = '--caption-images';
+            // Always enable auto-captioning when using Gemini integration
+            if (!isset($options['auto_caption']) || $options['auto_caption']) {
+                $params[] = '--auto-caption';
             }
-            
-            // Add OCR option for image-based text (default: enabled)
-            if (!isset($options['ocr_images']) || $options['ocr_images']) {
-                $params[] = '--ocr-images';
+
+            $captionMaxWords = $options['caption_max_words']
+                ?? config('services.gemini.caption_max_words', 20);
+            if (!empty($captionMaxWords)) {
+                $params[] = '--caption-max-words ' . escapeshellarg((int) $captionMaxWords);
+            }
+
+            $maxImagesPerPage = $options['max_images_per_page']
+                ?? config('services.gemini.max_images_per_page', 1);
+            if ($maxImagesPerPage !== null) {
+                $params[] = '--max-images-per-page ' . escapeshellarg((int) $maxImagesPerPage);
+            }
+
+            $minImageAreaRatio = $options['min_image_area_ratio']
+                ?? config('services.gemini.min_image_area_ratio', 0.01);
+            if ($minImageAreaRatio !== null) {
+                $params[] = '--min-image-area-ratio ' . escapeshellarg($minImageAreaRatio);
+            }
+
+            $geminiApiKey = $options['gemini_api_key']
+                ?? config('services.gemini.api_key');
+            if (!empty($geminiApiKey)) {
+                $params[] = '--gemini-api-key ' . escapeshellarg($geminiApiKey);
             }
             
             $paramString = implode(' ', $params);
@@ -124,14 +143,12 @@ class GeminiPdfProcessorService
                 $data = $this->postProcessJsonData($data);
             }
             
-            return $data;
-
             Log::info('Gemini PDF processing successful', [
-                'pages_count' => count($data['pages']),
-                'has_images' => isset($data['images_count']) ? $data['images_count'] : 0,
+                'pages_count' => count($data['pages'] ?? []),
+                'has_images' => $data['images_captioned'] ?? ($data['images_count'] ?? 0),
                 'total_lines' => array_sum(array_map(function($page) {
                     return count($page['lines'] ?? []);
-                }, $data['pages']))
+                }, $data['pages'] ?? []))
             ]);
 
             return $data;

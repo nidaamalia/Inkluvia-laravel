@@ -16,14 +16,19 @@ except ImportError:
     GeminiPdfProcessor = None
     GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
+DEFAULT_CAPTION_MAX_WORDS = int(os.getenv("GEMINI_CAPTION_MAX_WORDS", 12))
+DEFAULT_MAX_IMAGES_PER_PAGE = int(os.getenv("GEMINI_MAX_IMAGES_PER_PAGE", 1))
+DEFAULT_MIN_IMAGE_AREA_RATIO = float(os.getenv("GEMINI_MIN_IMAGE_AREA_RATIO", 0.01))
+
+
 def extract_text_from_pdf(
     pdf_path,
     auto_caption=False,
-    max_caption_words=12,
+    max_caption_words=DEFAULT_CAPTION_MAX_WORDS,
     gemini_api_key=None,
     stats=None,
-    max_images_per_page=1,
-    min_image_area_ratio=0.01
+    max_images_per_page=DEFAULT_MAX_IMAGES_PER_PAGE,
+    min_image_area_ratio=DEFAULT_MIN_IMAGE_AREA_RATIO,
 ):
     doc = fitz.open(pdf_path)
     pages = []
@@ -34,111 +39,123 @@ def extract_text_from_pdf(
     if auto_caption:
         if GeminiPdfProcessor is None:
             raise RuntimeError(
-                "GeminiPdfProcessor is not available. Install the Gemini dependencies first."
+                "GeminiPdfProcessor is not available. Install Gemini dependencies and ensure gemini_pdf_processor.py is accessible."
             )
+
         resolved_api_key = gemini_api_key or GEMINI_API_KEY or os.getenv("GEMINI_API_KEY")
         if not resolved_api_key:
             raise RuntimeError(
-                "GEMINI_API_KEY is not set. Provide it via environment variable or CLI argument."
+                "GEMINI_API_KEY is not set. Provide it via environment variable or --gemini-api-key argument."
             )
+
         gemini_client = GeminiPdfProcessor(api_key=resolved_api_key)
 
-    for page_num in range(doc.page_count):
-        page = doc.load_page(page_num)
-        lines = []
-        blocks = page.get_text("blocks")
-        line_number = 1
+    try:
+        for page_num in range(doc.page_count):
+            page = doc.load_page(page_num)
+            lines = []
+            blocks = page.get_text("blocks")
+            line_number = 1
 
-        for block in blocks:
-            text = block[4].strip()
-            if text:
-                for line in text.splitlines():
-                    if line.strip():
+            for block in blocks:
+                text = block[4].strip()
+                if text:
+                    for line in text.splitlines():
+                        if line.strip():
+                            lines.append({
+                                "line": line_number,
+                                "text": line.strip()
+                            })
+                            line_number += 1
+
+            if auto_caption and gemini_client:
+                images = page.get_images(full=True)
+                processed_xrefs = set()
+                page_area = page.rect.width * page.rect.height if page.rect else 0
+                candidates = []
+
+                for image_meta in images:
+                    try:
+                        xref = image_meta[0]
+                        if xref in processed_xrefs:
+                            continue
+
+                        width = image_meta[2] or 0
+                        height = image_meta[3] or 0
+                        area = width * height
+                        area_ratio = (area / page_area) if page_area else 0
+
+                        if min_image_area_ratio and area_ratio < min_image_area_ratio:
+                            processed_xrefs.add(xref)
+                            continue
+
+                        base_image = doc.extract_image(xref)
+                        image_bytes = base_image["image"]
+
+                        candidates.append({
+                            "xref": xref,
+                            "area": area,
+                            "bytes": image_bytes
+                        })
+                        processed_xrefs.add(xref)
+
+                    except Exception as exc:
+                        print(
+                            f"Warning: Failed to prepare image on page {page_num + 1}: {exc}",
+                            file=sys.stderr
+                        )
+
+                if max_images_per_page is not None and max_images_per_page > 0:
+                    candidates.sort(key=lambda item: item["area"], reverse=True)
+                    selected_images = candidates[:max_images_per_page]
+                else:
+                    selected_images = candidates
+
+                for candidate in selected_images:
+                    try:
+                        caption_text = gemini_client.caption_image(
+                            candidate["bytes"],
+                            max_words=max_caption_words
+                        )
                         lines.append({
                             "line": line_number,
-                            "text": line.strip()
+                            "text": f"[Gambar: {caption_text}]"
                         })
                         line_number += 1
+                        total_captions += 1
+                    except Exception as exc:
+                        print(
+                            f"Warning: Failed to caption image on page {page_num + 1}: {exc}",
+                            file=sys.stderr
+                        )
 
-        if auto_caption and gemini_client:
-            images = page.get_images(full=True)
-            processed_xrefs = set()
-            page_area = page.rect.width * page.rect.height if page.rect else 0
-            candidates = []
+            pages.append({
+                "page": page_num + 1,
+                "lines": lines
+            })
 
-            for img in images:
-                try:
-                    xref = img[0]
-                    if xref in processed_xrefs:
-                        continue
-                    width = img[2] or 0
-                    height = img[3] or 0
-                    area = width * height
-                    area_ratio = (area / page_area) if page_area else 0
-                    if min_image_area_ratio and area_ratio < min_image_area_ratio:
-                        processed_xrefs.add(xref)
-                        continue
-                    base_image = doc.extract_image(xref)
-                    image_bytes = base_image["image"]
-                    candidates.append({
-                        "xref": xref,
-                        "area": area,
-                        "bytes": image_bytes
-                    })
-                    processed_xrefs.add(xref)
-                except Exception as exc:
-                    print(
-                        f"Warning: Failed to prepare image on page {page_num + 1}: {exc}",
-                        file=sys.stderr
-                    )
-
-            if max_images_per_page is not None and max_images_per_page > 0:
-                candidates.sort(key=lambda item: item["area"], reverse=True)
-                selected_images = candidates[:max_images_per_page]
-            else:
-                selected_images = candidates
-
-            for candidate in selected_images:
-                try:
-                    caption_text = gemini_client.caption_image(
-                        candidate["bytes"],
-                        max_words=max_caption_words
-                    )
-                    lines.append({
-                        "line": line_number,
-                        "text": f"[Gambar: {caption_text}]"
-                    })
-                    line_number += 1
-                    total_captions += 1
-                except Exception as exc:
-                    print(
-                        f"Warning: Failed to caption image on page {page_num + 1}: {exc}",
-                        file=sys.stderr
-                    )
-
-        pages.append({
-            "page": page_num + 1,
-            "lines": lines
-        })
+    finally:
+        doc.close()
 
     if stats is not None:
         stats["images_captioned"] = total_captions
 
     return pages
 
+
 def extract_metadata(pdf_path):
     doc = fitz.open(pdf_path)
     meta = doc.metadata
-    # Use common PDF metadata fields
     return {
         "judul": meta.get("title"),
         "penerbit": meta.get("publisher") or meta.get("author"),
         "tahun": meta.get("creationDate", "")[2:6] if meta.get("creationDate") else None,
-        "edisi": None  # Usually not in PDF metadata
+        "edisi": None
     }
 
+
 def main():
-    ap = argparse.ArgumentParser(description="PDF -> JSON (pages + lines) using PyMuPDF")
+    ap = argparse.ArgumentParser(description="PDF -> JSON (pages + lines) with optional Gemini auto-captioning")
     ap.add_argument("pdf", help="Path to input PDF file")
     ap.add_argument("-o", "--output", help="Path to output JSON (default: input.json beside PDF)")
     ap.add_argument("--judul", help="Override judul (title)")
@@ -148,30 +165,32 @@ def main():
     ap.add_argument(
         "--auto-caption",
         action="store_true",
-        help="Automatically caption images using Google Gemini (requires GEMINI_API_KEY)"
+        default=False,
+        help="Automatically caption PDF images using Google Gemini"
     )
     ap.add_argument(
         "--caption-max-words",
         type=int,
-        default=12,
-        help="Maximum number of words per generated image caption (default: 12)"
+        default=DEFAULT_CAPTION_MAX_WORDS,
+        help="Maximum number of words per image caption"
     )
     ap.add_argument(
         "--gemini-api-key",
-        help="Override the GEMINI_API_KEY environment variable for Gemini integration"
+        help="Override GEMINI_API_KEY environment variable"
     )
     ap.add_argument(
         "--max-images-per-page",
         type=int,
-        default=1,
-        help="Maximum number of images to caption per page (default: 1)"
+        default=DEFAULT_MAX_IMAGES_PER_PAGE,
+        help="Maximum number of images to caption on each page"
     )
     ap.add_argument(
         "--min-image-area-ratio",
         type=float,
-        default=0.01,
-        help="Minimum area ratio (image area / page area) to consider for captioning (default: 0.01)"
+        default=DEFAULT_MIN_IMAGE_AREA_RATIO,
+        help="Minimum image area ratio (image area / page area) to consider for captioning"
     )
+
     args = ap.parse_args()
 
     if not os.path.isfile(args.pdf) or not args.pdf.lower().endswith(".pdf"):
@@ -190,12 +209,14 @@ def main():
         max_images_per_page=args.max_images_per_page,
         min_image_area_ratio=args.min_image_area_ratio
     )
+
     payload = {
         "judul": args.judul or meta["judul"],
         "penerbit": args.penerbit or meta["penerbit"],
         "tahun": args.tahun or meta["tahun"],
         "edisi": args.edisi or meta["edisi"],
-        "pages": pages
+        "pages": pages,
+        "processing_method": "pdf_to_json_with_auto_caption" if args.auto_caption else "pdf_to_json"
     }
 
     if args.auto_caption:
@@ -205,6 +226,7 @@ def main():
         json.dump(payload, f, ensure_ascii=False, indent=2)
 
     print(f"OK: wrote {out_path}")
+
 
 if __name__ == "__main__":
     main()
