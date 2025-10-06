@@ -87,10 +87,14 @@ class GeminiPdfProcessor:
             'total_images': total_images
         }
     
-    def caption_image(self, image_bytes: bytes, max_words: int = 10) -> str:
+    def caption_image(self, image_bytes: bytes, max_words: int = 20) -> str:
         """Generate image caption using Gemini Vision"""
         try:
-            prompt = f"Describe this image in maximum {max_words} words. Focus on the main subject and important details. Be concise and clear."
+            prompt = (
+                "Deskripsikan gambar ini dalam bahasa Indonesia dengan maksimal "
+                f"{max_words} kata. Fokus pada subjek utama dan detail penting."
+                " Gunakan kalimat singkat dan jelas."
+            )
             
             response = self.client.models.generate_content(
                 model=self.model,
@@ -104,6 +108,7 @@ class GeminiPdfProcessor:
             )
             
             caption = response.text.strip()
+            caption = " ".join(caption.split())
             
             # Ensure it doesn't exceed max words
             words = caption.split()

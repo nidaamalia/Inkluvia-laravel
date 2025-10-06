@@ -54,6 +54,7 @@ php artisan db:seed
 ```
 
 python -m pip install pymupdf
+py -m pip install google-genai pillow pymupdf
 
 ### 7. Jalankan Server
 - Aktifkan MySQL pada XAMPP Control Panel
