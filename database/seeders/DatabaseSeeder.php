@@ -12,6 +12,7 @@ class DatabaseSeeder extends Seeder
     {
         $this->call([
             LembagaSeeder::class,
+            BraillePatternsSeeder::class,
         ]);
         
         User::firstOrCreate(
@@ -54,7 +55,6 @@ class DatabaseSeeder extends Seeder
         );
 
         $this->call([
-            BraillePatternsSeeder::class,
             EduBrailleSeeder::class,
         ]);
     }

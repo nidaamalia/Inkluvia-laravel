@@ -48,10 +48,13 @@ DB_PASSWORD=
 - Jalankan migrasi dan seeder:
 ```bash
 php artisan migrate
+php artisan db:seed --class=DatabaseSeeder
 php artisan db:seed
+
 ```
 
 python -m pip install pymupdf
+py -m pip install google-genai pillow pymupdf
 
 ### 7. Jalankan Server
 - Aktifkan MySQL pada XAMPP Control Panel

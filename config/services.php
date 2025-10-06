@@ -38,6 +38,10 @@ return [
     'gemini' => [
         'api_key' => env('GEMINI_API_KEY'),
         'model' => env('GEMINI_MODEL', 'gemini-2.0-flash-exp'),
+        'auto_caption' => env('GEMINI_AUTO_CAPTION', true),
+        'caption_max_words' => env('GEMINI_CAPTION_MAX_WORDS', 20),
+        'max_images_per_page' => env('GEMINI_MAX_IMAGES_PER_PAGE', 1),
+        'min_image_area_ratio' => env('GEMINI_MIN_IMAGE_AREA_RATIO', 0.01),
     ],
 
 ];

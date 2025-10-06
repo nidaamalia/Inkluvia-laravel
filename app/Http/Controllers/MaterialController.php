@@ -360,8 +360,11 @@ class MaterialController extends Controller
                 'penerbit' => $material->penerbit,
                 'tahun' => $material->tahun_terbit,
                 'edisi' => $material->edisi,
-                'caption_images' => true,  // Enable image captioning
-                'ocr_images' => true       // Enable OCR for image-based text
+                'auto_caption' => config('services.gemini.auto_caption', true),
+                'caption_max_words' => config('services.gemini.caption_max_words'),
+                'max_images_per_page' => config('services.gemini.max_images_per_page'),
+                'min_image_area_ratio' => config('services.gemini.min_image_area_ratio'),
+                'gemini_api_key' => config('services.gemini.api_key')
             ];
             
             \Log::info("Starting Gemini-enhanced PDF conversion for material {$material->id}");

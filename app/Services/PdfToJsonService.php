@@ -77,6 +77,31 @@ class PdfToJsonService
             if (isset($options['edisi']) && $options['edisi']) {
                 $params[] = '--edisi ' . escapeshellarg($options['edisi']);
             }
+
+            $autoCaption = $options['auto_caption'] ?? config('services.gemini.auto_caption', false);
+            if ($autoCaption) {
+                $params[] = '--auto-caption';
+            }
+
+            $captionMaxWords = $options['caption_max_words'] ?? config('services.gemini.caption_max_words');
+            if ($captionMaxWords !== null && $captionMaxWords !== '') {
+                $params[] = '--caption-max-words ' . escapeshellarg((int) $captionMaxWords);
+            }
+
+            $maxImagesPerPage = $options['max_images_per_page'] ?? config('services.gemini.max_images_per_page');
+            if ($maxImagesPerPage !== null && $maxImagesPerPage !== '') {
+                $params[] = '--max-images-per-page ' . escapeshellarg((int) $maxImagesPerPage);
+            }
+
+            $minImageAreaRatio = $options['min_image_area_ratio'] ?? config('services.gemini.min_image_area_ratio');
+            if ($minImageAreaRatio !== null && $minImageAreaRatio !== '') {
+                $params[] = '--min-image-area-ratio ' . escapeshellarg($minImageAreaRatio);
+            }
+
+            $geminiApiKey = $options['gemini_api_key'] ?? config('services.gemini.api_key');
+            if ($geminiApiKey) {
+                $params[] = '--gemini-api-key ' . escapeshellarg($geminiApiKey);
+            }
             
             $paramString = implode(' ', $params);
             $pythonCmd = $this->resolvePythonCommand();
