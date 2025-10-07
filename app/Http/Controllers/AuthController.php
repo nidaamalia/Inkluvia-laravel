@@ -51,12 +51,35 @@ class AuthController extends Controller
             'tanggal_lahir' => 'required|date',
             'jenis_kelamin' => 'required|in:Laki-laki,Perempuan',
             'lembaga_id' => 'required|exists:lembagas,id',
+            'lembaga_key' => 'nullable|string',
         ]);
 
         if ($validator->fails()) {
             return redirect()->back()
                 ->withErrors($validator)
                 ->withInput();
+        }
+
+        // Validate lembaga key
+        if ($request->filled('lembaga_id')) {
+            $lembaga = Lembaga::find($request->lembaga_id);
+            if (!$lembaga) {
+                return redirect()->back()
+                    ->withErrors(['lembaga_id' => 'Lembaga tidak ditemukan.'])
+                    ->withInput();
+            }
+            if ($lembaga->type !== 'Individu') {
+                if (empty($request->lembaga_key)) {
+                    return redirect()->back()
+                        ->withErrors(['lembaga_key' => 'Kunci lembaga wajib diisi untuk lembaga yang dipilih.'])
+                        ->withInput();
+                }
+                if (!$lembaga->login_key || $lembaga->login_key !== $request->lembaga_key) {
+                    return redirect()->back()
+                        ->withErrors(['lembaga_key' => 'Kunci lembaga tidak valid untuk lembaga yang dipilih.'])
+                        ->withInput();
+                }
+            }
         }
 
         $user = User::create([

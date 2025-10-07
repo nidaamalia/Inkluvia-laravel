@@ -127,8 +127,8 @@
                                     type="radio" 
                                     id="laki_laki" 
                                     name="jenis_kelamin" 
-                                    value="L"
-                                    {{ old('jenis_kelamin') == 'L' ? 'checked' : '' }}
+                                    value="Laki-laki"
+                                    {{ old('jenis_kelamin') == 'Laki-laki' ? 'checked' : '' }}
                                     required
                                     class="peer sr-only">
                                 <label for="laki_laki" 
@@ -144,8 +144,8 @@
                                     type="radio" 
                                     id="perempuan" 
                                     name="jenis_kelamin" 
-                                    value="P"
-                                    {{ old('jenis_kelamin') == 'P' ? 'checked' : '' }}
+                                    value="Perempuan"
+                                    {{ old('jenis_kelamin') == 'Perempuan' ? 'checked' : '' }}
                                     class="peer sr-only">
                                 <label for="perempuan" 
                                        class="flex items-center justify-center p-3 border-2 border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50 peer-checked:border-primary peer-checked:bg-primary peer-checked:bg-opacity-10 peer-focus:ring-2 peer-focus:ring-primary peer-focus:ring-offset-2 transition-all">
@@ -170,11 +170,25 @@
                             aria-required="true">
                             <option value="">Pilih Sekolah/Lembaga</option>
                             @foreach($lembagas as $lembaga)
-                            <option value="{{ $lembaga->id }}" {{ old('lembaga_id') == $lembaga->id ? 'selected' : '' }}>
+                            <option value="{{ $lembaga->id }}" data-type="{{ $lembaga->type }}" {{ old('lembaga_id') == $lembaga->id ? 'selected' : '' }}>
                                 {{ $lembaga->nama }}
                             </option>
                             @endforeach
                         </select>
+                    </div>
+
+
+                    <div id="lembaga_key_wrapper" style="display: none;">
+                        <label for="lembaga_key" class="block text-sm font-semibold text-gray-900 mb-2">
+                            Kunci Lembaga
+                        </label>
+                        <input 
+                            type="text" 
+                            id="lembaga_key" 
+                            name="lembaga_key" 
+                            class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition-colors text-base"
+                            placeholder="Masukkan kunci lembaga"
+                            value="{{ old('lembaga_key') }}">
                     </div>
 
                     <!-- Password -->
@@ -298,6 +312,16 @@
             
             password.addEventListener('input', validatePassword);
             passwordConfirmation.addEventListener('input', validatePassword);
+
+            const lembagaSelect = document.getElementById('lembaga_id');
+            const keyWrapper = document.getElementById('lembaga_key_wrapper');
+            function toggleKey() {
+                const opt = lembagaSelect.options[lembagaSelect.selectedIndex];
+                const type = opt && opt.dataset ? opt.dataset.type : '';
+                keyWrapper.style.display = (lembagaSelect.value && type !== 'Individu') ? 'block' : 'none';
+            }
+            lembagaSelect.addEventListener('change', toggleKey);
+            toggleKey();
 
             // Form submission announcement
             const form = document.getElementById('register-form');

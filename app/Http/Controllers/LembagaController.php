@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\Lembaga;
+use Illuminate\Support\Facades\Mail;
+use App\Mail\InstitutionLoginKeyMail;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 
@@ -47,7 +49,8 @@ class LembagaController extends Controller
         $validator = Validator::make($request->all(), [
             'nama' => 'required|string|max:255',
             'type' => 'required|string|max:100',
-            'alamat' => 'required|string|max:500'
+            'alamat' => 'required|string|max:500',
+            'email' => 'nullable|email|max:150',
         ]);
         
         if ($validator->fails()) {
@@ -56,12 +59,21 @@ class LembagaController extends Controller
                 ->withInput();
         }
         
-        Lembaga::create([
+        $loginKey = bin2hex(random_bytes(16));
+
+        $lembaga = Lembaga::create([
             'nama' => $request->nama,
             'type' => $request->type,
             'alamat' => $request->alamat,
+            'deskripsi' => $request->deskripsi,
+            'email' => $request->email,
+            'login_key' => $loginKey,
         ]);
-        
+
+        if ($request->boolean('send_key') && $lembaga->email) {
+            Mail::to($lembaga->email)->send(new InstitutionLoginKeyMail($lembaga->nama, $loginKey));
+        }
+
         return redirect()->route('admin.manajemen-lembaga')
             ->with('success', 'Lembaga berhasil ditambahkan!');
     }

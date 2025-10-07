@@ -14,6 +14,8 @@ class Lembaga extends Model
         'type',
         'alamat',
         'deskripsi',
+        'email',
+        'login_key',
     ];
 
     /**
