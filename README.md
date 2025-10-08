@@ -65,3 +65,74 @@ php artisan serve
 
 ### 8. Akses Aplikasi
 Buka browser dan akses: `http://localhost:8000`
+
+---
+
+## Deployment ke Railway
+
+### Prerequisites
+- Akun Railway (https://railway.app)
+- Repository GitHub yang sudah terhubung
+
+### Langkah-langkah Deployment
+
+#### 1. Setup Project di Railway
+- Login ke Railway
+- Klik "New Project" → "Deploy from GitHub repo"
+- Pilih repository Inkluvia
+
+#### 2. Tambahkan Database
+- Di dashboard Railway, klik "New" → "Database" → "Add PostgreSQL" atau "Add MySQL"
+- Railway akan otomatis membuat environment variables untuk database
+
+#### 3. Konfigurasi Environment Variables
+Tambahkan environment variables berikut di Railway:
+
+```env
+APP_NAME=Inkluvia
+APP_ENV=production
+APP_KEY=base64:YOUR_APP_KEY_HERE
+APP_DEBUG=false
+APP_URL=https://your-app.up.railway.app
+
+DB_CONNECTION=mysql
+# Database credentials akan otomatis terisi oleh Railway
+
+CACHE_STORE=database
+SESSION_DRIVER=database
+QUEUE_CONNECTION=database
+
+LOG_CHANNEL=stack
+LOG_LEVEL=error
+```
+
+**Penting:** Generate `APP_KEY` dengan menjalankan:
+```bash
+php artisan key:generate --show
+```
+
+#### 4. Deploy
+- Railway akan otomatis mendeteksi `nixpacks.toml` dan `Procfile`
+- Build dan deployment akan berjalan otomatis
+- Migrations akan dijalankan otomatis saat deployment
+
+#### 5. Verifikasi
+- Akses URL yang diberikan Railway
+- Pastikan aplikasi berjalan dengan baik
+
+### Troubleshooting
+
+**Error: "no such table: cache"**
+- Pastikan migration sudah dijalankan
+- Cek environment variable `CACHE_STORE=database`
+- Restart deployment di Railway
+
+**Error: Database connection**
+- Pastikan database Railway sudah aktif
+- Cek environment variables database sudah benar
+- Tunggu beberapa menit untuk database siap
+
+**Error: 500 Internal Server Error**
+- Set `APP_DEBUG=true` sementara untuk melihat error detail
+- Cek logs di Railway dashboard
+- Pastikan `APP_KEY` sudah di-set
