@@ -64,7 +64,7 @@
                 @endif
 
                 <!-- Register Form -->
-                <form method="POST" action="{{ route('register') }}" id="register-form" class="space-y-5">
+                <form method="POST" action="{{ route('register.submit') }}" id="register-form" class="space-y-5">
                     @csrf
                     
                     <!-- Nama Lengkap -->
@@ -196,16 +196,29 @@
                         <label for="password" class="block text-sm font-semibold text-gray-900 mb-2">
                             Password <span class="text-red-500">*</span>
                         </label>
-                        <input 
-                            type="password" 
-                            id="password" 
-                            name="password" 
-                            required
-                            minlength="8"
-                            class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition-colors text-base"
-                            placeholder="Minimal 8 karakter"
-                            aria-required="true"
-                            aria-describedby="password-help">
+                        <div class="relative">
+                            <input 
+                                type="password" 
+                                id="password" 
+                                name="password" 
+                                required
+                                minlength="8"
+                                class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition-colors text-base"
+                                placeholder="Minimal 8 karakter"
+                                aria-required="true"
+                                aria-describedby="password-help">
+                                <button type="button" 
+                                    onclick="togglePassword('password', this)" 
+                                    class="absolute inset-y-0 right-0 flex items-center px-3 text-gray-500 hover:text-gray-700 focus:outline-none">
+                                    <!-- Eye icon -->
+                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" class="w-5 h-5">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                                            d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                                            d="M2.458 12C3.732 7.943 7.523 5 12 5c4.477 0 8.268 2.943 9.542 7-1.274 4.057-5.065 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                    </svg>
+                                </button>
+                        </div>
                         <p id="password-help" class="mt-1 text-xs text-gray-500">
                             Password minimal 8 karakter
                         </p>
@@ -216,14 +229,27 @@
                         <label for="password_confirmation" class="block text-sm font-semibold text-gray-900 mb-2">
                             Konfirmasi Password <span class="text-red-500">*</span>
                         </label>
-                        <input 
-                            type="password" 
-                            id="password_confirmation" 
-                            name="password_confirmation" 
-                            required
-                            class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition-colors text-base"
-                            placeholder="Ulangi password"
-                            aria-required="true">
+                        <div class="relative">
+                            <input 
+                                type="password" 
+                                id="password_confirmation" 
+                                name="password_confirmation" 
+                                required
+                                class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition-colors text-base"
+                                placeholder="Ulangi password"
+                                aria-required="true">
+                                <button type="button" 
+                                    onclick="togglePassword('password_confirmation', this)" 
+                                    class="absolute inset-y-0 right-0 flex items-center px-3 text-gray-500 hover:text-gray-700 focus:outline-none">
+                                    <!-- Eye icon -->
+                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" class="w-5 h-5">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                                            d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                                            d="M2.458 12C3.732 7.943 7.523 5 12 5c4.477 0 8.268 2.943 9.542 7-1.274 4.057-5.065 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                    </svg>
+                                </button>
+                        </div>
                     </div>
 
                     <!-- Submit Button -->
@@ -291,6 +317,20 @@
     </style>
 
     <script>
+        function togglePassword(inputId, buttonEl) {
+            const input = document.getElementById(inputId);
+            if (!input) return;
+
+            const isCurrentlyHidden = input.type === 'password';
+            input.type = isCurrentlyHidden ? 'text' : 'password';
+
+            if (buttonEl) {
+                buttonEl.setAttribute('aria-pressed', isCurrentlyHidden ? 'true' : 'false');
+                buttonEl.setAttribute('aria-label', isCurrentlyHidden ? 'Sembunyikan password' : 'Tampilkan password');
+                buttonEl.title = isCurrentlyHidden ? 'Sembunyikan password' : 'Tampilkan password';
+            }
+        }
+
         document.addEventListener('DOMContentLoaded', function() {
             // Focus management
             const namaInput = document.getElementById('nama_lengkap');
