@@ -3,32 +3,7 @@
 @section('title', 'Dashboard')
 
 @section('content')
-<!-- Skip to main content link for screen readers -->
-<a href="#main-content" class="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 bg-primary text-white px-4 py-2 rounded">
-    Skip to main content
-</a>
 
-<!-- Voice Command Toggle (Sticky) -->
-<button id="voiceToggle" 
-        class="fixed bottom-6 right-6 z-50 w-16 h-16 bg-gradient-to-br from-primary to-secondary text-white rounded-full shadow-lg hover:shadow-xl transition-all duration-300 flex items-center justify-center group"
-        aria-label="Toggle voice commands"
-        aria-pressed="false"
-        title="Tekan untuk mengaktifkan perintah suara">
-    <i class="fas fa-microphone text-2xl" id="micIcon"></i>
-    <span class="absolute -top-2 -right-2 w-6 h-6 bg-red-500 rounded-full animate-pulse hidden" id="listeningIndicator"></span>
-</button>
-
-<!-- Voice Command Help -->
-<div id="voiceHelp" class="hidden fixed bottom-24 right-6 bg-white rounded-lg shadow-xl p-4 max-w-xs z-40 border-2 border-primary">
-    <h3 class="font-bold text-primary mb-2">Perintah Suara:</h3>
-    <ul class="text-sm space-y-1 text-gray-700">
-        <li>• "Buka perpustakaan"</li>
-        <li>• "Request materi"</li>
-        <li>• "Lihat jadwal"</li>
-        <li>• "Bantuan suara"</li>
-        <li>• "Tutup bantuan"</li>
-    </ul>
-</div>
 
 <!-- Main Content -->
 <main id="main-content" role="main" tabindex="-1">
@@ -45,43 +20,43 @@
         <h2 class="text-2xl font-bold text-gray-900 mb-4">Aksi Cepat</h2>
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
             <!-- Mulai Belajar -->
-            <a href="{{ route('user.perpustakaan') }}" 
+            <a href="{{ route('user.jadwal-belajar') }}" 
                class="group bg-gradient-to-br from-primary to-secondary text-white p-6 rounded-xl shadow-md hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 focus:ring-4 focus:ring-primary focus:ring-opacity-50 focus:outline-none"
-               aria-label="Mulai belajar dari perpustakaan materi">
+               aria-label="Mulai belajar dari jadwal belajar">
                 <div class="flex flex-col items-center text-center">
                     <div class="w-16 h-16 bg-white bg-opacity-20 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
                         <i class="fas fa-play text-3xl" aria-hidden="true"></i>
                     </div>
                     <h3 class="text-xl font-bold mb-2">Mulai Belajar</h3>
-                    <p class="text-sm opacity-90">Akses materi pembelajaran</p>
+                    <p class="text-sm opacity-90">Akses jadwal pembelajaran</p>
                 </div>
             </a>
 
-            <!-- Request Materi -->
-            <button onclick="handleRequestMateri()" 
-                    class="group bg-white border-2 border-primary text-primary p-6 rounded-xl shadow-md hover:bg-primary hover:text-white transition-all duration-300 transform hover:-translate-y-1 focus:ring-4 focus:ring-primary focus:ring-opacity-50 focus:outline-none"
-                    aria-label="Ajukan permintaan materi baru">
+            <!-- Materi Saya -->
+            <a href="{{ route('user.materi-saya') }}" 
+               class="group bg-white border-2 border-primary text-primary p-6 rounded-xl shadow-md hover:bg-primary hover:text-white transition-all duration-300 transform hover:-translate-y-1 focus:ring-4 focus:ring-primary focus:ring-opacity-50 focus:outline-none"
+               aria-label="Kelola materi saya">
                 <div class="flex flex-col items-center text-center">
                     <div class="w-16 h-16 bg-primary bg-opacity-10 group-hover:bg-white group-hover:bg-opacity-20 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                        <i class="fas fa-file-circle-plus text-3xl" aria-hidden="true"></i>
+                        <i class="fas fa-folder-open text-3xl" aria-hidden="true"></i>
                     </div>
-                    <h3 class="text-xl font-bold mb-2">Request Materi</h3>
-                    <p class="text-sm opacity-90">Ajukan materi baru</p>
+                    <h3 class="text-xl font-bold mb-2">Materi Saya</h3>
+                    <p class="text-sm opacity-90">Kelola materi Anda</p>
                 </div>
-            </button>
+            </a>
 
-            <!-- Request Saya -->
-            <button onclick="handleMyRequests()" 
-                    class="group bg-white border-2 border-primary text-primary p-6 rounded-xl shadow-md hover:bg-primary hover:text-white transition-all duration-300 transform hover:-translate-y-1 focus:ring-4 focus:ring-primary focus:ring-opacity-50 focus:outline-none"
-                    aria-label="Lihat daftar request materi saya">
+            <!-- Perpustakaan -->
+            <a href="{{ route('user.perpustakaan') }}" 
+               class="group bg-white border-2 border-primary text-primary p-6 rounded-xl shadow-md hover:bg-primary hover:text-white transition-all duration-300 transform hover:-translate-y-1 focus:ring-4 focus:ring-primary focus:ring-opacity-50 focus:outline-none"
+               aria-label="Jelajahi perpustakaan materi">
                 <div class="flex flex-col items-center text-center">
                     <div class="w-16 h-16 bg-primary bg-opacity-10 group-hover:bg-white group-hover:bg-opacity-20 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                        <i class="fas fa-list text-3xl" aria-hidden="true"></i>
+                        <i class="fas fa-book text-3xl" aria-hidden="true"></i>
                     </div>
-                    <h3 class="text-xl font-bold mb-2">Request Saya</h3>
-                    <p class="text-sm opacity-90">Lihat status request</p>
+                    <h3 class="text-xl font-bold mb-2">Perpustakaan</h3>
+                    <p class="text-sm opacity-90">Jelajahi materi</p>
                 </div>
-            </button>
+            </a>
         </div>
     </section>
 

@@ -27,6 +27,12 @@ class PerpustakaanController extends Controller
 
     /**
      * Display listing of materials available to user
+     * 
+     * RULES:
+     * 1. Materi dari ADMIN → Tampil untuk SEMUA user (tanpa batasan lembaga)
+     * 2. Materi dari USER → Sesuai hak akses:
+     *    - Private: Tidak tampil di perpustakaan (hanya di "Materi Saya")
+     *    - Public: Tampil hanya untuk user dari lembaga yang sama
      */
     public function index(Request $request)
     {
@@ -37,14 +43,22 @@ class PerpustakaanController extends Controller
             ->where('status', 'published')
             ->with('creator');
 
-        // Filter berdasarkan hak akses - sesuai dengan aturan admin
+        // Filter berdasarkan creator dan hak akses
         $query->where(function($q) use ($userLembagaId) {
-            // Materi publik - dapat diakses semua orang
-            $q->where('akses', 'public');
+            // 1. Materi dari ADMIN - tampil untuk semua user
+            $q->whereHas('creator', function($creatorQuery) {
+                $creatorQuery->where('role', 'admin');
+            });
             
-            // Materi khusus lembaga - hanya dapat diakses user dari lembaga tersebut
+            // 2. Materi PUBLIC dari USER dengan lembaga yang sama
             if ($userLembagaId) {
-                $q->orWhere('akses', $userLembagaId);
+                $q->orWhere(function($subQ) use ($userLembagaId) {
+                    $subQ->where('akses', 'public')
+                         ->whereHas('creator', function($creatorQuery) use ($userLembagaId) {
+                             $creatorQuery->where('role', 'user')
+                                          ->where('lembaga_id', $userLembagaId);
+                         });
+                });
             }
         });
 
@@ -69,10 +83,10 @@ class PerpustakaanController extends Controller
         }
 
         // Sorting
-        $sortBy = $request->get('sort', 'judul');
-        $sortOrder = $request->get('order', 'asc');
+        $sortBy = $request->get('sort', 'created_at');
+        $sortOrder = $request->get('order', 'desc');
         
-        if (in_array($sortBy, ['judul', 'tahun_terbit', 'published_at'])) {
+        if (in_array($sortBy, ['judul', 'tahun_terbit', 'created_at'])) {
             $query->orderBy($sortBy, $sortOrder);
         }
 
@@ -129,7 +143,6 @@ class PerpustakaanController extends Controller
 
         $materials = $query->paginate(12)->withQueryString();
 
-        // Get user's saved materials
         $userSavedMaterials = UserSavedMaterial::where('user_id', Auth::id())
             ->pluck('material_id')
             ->toArray();
@@ -142,11 +155,10 @@ class PerpustakaanController extends Controller
      */
     public function toggleSaved(Material $material)
     {
-        // Check access rights
         $user = Auth::user();
-        $userLembagaId = $user->lembaga_id;
         
-        $hasAccess = $material->akses === 'public' || $material->akses == $userLembagaId;
+        // Check if user has access to this material
+        $hasAccess = $this->checkMaterialAccess($material, $user);
         
         if (!$hasAccess) {
             return response()->json([
@@ -190,11 +202,8 @@ class PerpustakaanController extends Controller
      */
     public function preview(Material $material)
     {
-        // Check access rights
         $user = Auth::user();
-        $userLembagaId = $user->lembaga_id;
-        
-        $hasAccess = $material->akses === 'public' || $material->akses == $userLembagaId;
+        $hasAccess = $this->checkMaterialAccess($material, $user);
         
         if (!$hasAccess) {
             return response()->json([
@@ -204,7 +213,6 @@ class PerpustakaanController extends Controller
         }
 
         try {
-            // Get JSON content
             if (!$material->file_path || !Storage::disk('private')->exists($material->file_path)) {
                 return response()->json([
                     'success' => false,
@@ -215,7 +223,6 @@ class PerpustakaanController extends Controller
             $jsonContent = Storage::disk('private')->get($material->file_path);
             $jsonData = json_decode($jsonContent, true);
 
-            // Format content for screen reader
             $previewData = [
                 'id' => $material->id,
                 'judul' => $material->judul,
@@ -248,11 +255,8 @@ class PerpustakaanController extends Controller
      */
     public function showPreview(Material $material)
     {
-        // Check access rights
         $user = Auth::user();
-        $userLembagaId = $user->lembaga_id;
-        
-        $hasAccess = $material->akses === 'public' || $material->akses == $userLembagaId;
+        $hasAccess = $this->checkMaterialAccess($material, $user);
         
         if (!$hasAccess) {
             abort(403, 'Anda tidak memiliki akses ke materi ini');
@@ -282,11 +286,8 @@ class PerpustakaanController extends Controller
      */
     public function sendToDevice(Request $request, Material $material)
     {
-        // Check access rights
         $user = Auth::user();
-        $userLembagaId = $user->lembaga_id;
-        
-        $hasAccess = $material->akses === 'public' || $material->akses == $userLembagaId;
+        $hasAccess = $this->checkMaterialAccess($material, $user);
         
         if (!$hasAccess) {
             return redirect()->route('user.perpustakaan')
@@ -299,9 +300,7 @@ class PerpustakaanController extends Controller
     public function startMaterial(Material $material)
     {
         $user = Auth::user();
-        $userLembagaId = $user->lembaga_id;
-
-        $hasAccess = $material->akses === 'public' || $material->akses == $userLembagaId;
+        $hasAccess = $this->checkMaterialAccess($material, $user);
 
         if (!$hasAccess) {
             abort(403, 'Anda tidak memiliki akses ke materi ini');
@@ -333,9 +332,7 @@ class PerpustakaanController extends Controller
     public function sendMaterialToDevices(Request $request, Material $material)
     {
         $user = Auth::user();
-        $userLembagaId = $user->lembaga_id;
-
-        $hasAccess = $material->akses === 'public' || $material->akses == $userLembagaId;
+        $hasAccess = $this->checkMaterialAccess($material, $user);
 
         if (!$hasAccess) {
             abort(403, 'Anda tidak memiliki akses ke materi ini');
@@ -387,9 +384,7 @@ class PerpustakaanController extends Controller
     public function learnMaterial(Request $request, Material $material)
     {
         $user = Auth::user();
-        $userLembagaId = $user->lembaga_id;
-
-        $hasAccess = $material->akses === 'public' || $material->akses == $userLembagaId;
+        $hasAccess = $this->checkMaterialAccess($material, $user);
 
         if (!$hasAccess) {
             abort(403, 'Anda tidak memiliki akses ke materi ini');
@@ -476,9 +471,7 @@ class PerpustakaanController extends Controller
     public function materialPage(Material $material, Request $request)
     {
         $user = Auth::user();
-        $userLembagaId = $user->lembaga_id;
-
-        $hasAccess = $material->akses === 'public' || $material->akses == $userLembagaId;
+        $hasAccess = $this->checkMaterialAccess($material, $user);
 
         if (!$hasAccess) {
             return response()->json(['error' => 'Anda tidak memiliki akses ke materi ini'], 403);
@@ -544,6 +537,40 @@ class PerpustakaanController extends Controller
                 'deviceCount' => count($selectedDeviceIds)
             ]
         ]);
+    }
+
+    /**
+     * Check if user has access to material
+     * 
+     * RULES:
+     * 1. Materi dari ADMIN → Semua user bisa akses
+     * 2. Materi PRIVATE dari USER → Hanya creator
+     * 3. Materi PUBLIC dari USER → User dari lembaga yang sama
+     */
+    private function checkMaterialAccess(Material $material, $user): bool
+    {
+        // User owns the material (creator)
+        if ($material->created_by === $user->id) {
+            return true;
+        }
+        
+        // Material from ADMIN - accessible to all users
+        if ($material->creator->role === 'admin') {
+            return true;
+        }
+        
+        // Material PUBLIC from USER - only for same lembaga
+        if ($material->akses === 'public' && $material->creator->role === 'user') {
+            $userLembagaId = $user->lembaga_id;
+            
+            if ($userLembagaId && $user->lembaga && $user->lembaga->type !== 'Individu') {
+                if ($material->creator->lembaga_id === $userLembagaId) {
+                    return true;
+                }
+            }
+        }
+        
+        return false;
     }
 
     /**

@@ -17,22 +17,32 @@
                     {{ $material->judul }}
                 </h1>
                 
-                <!-- Meta Information -->
+                <!-- Meta Information Section in Header -->
                 <div class="flex flex-wrap gap-2 mb-4">
                     <span class="px-3 py-1 bg-blue-100 text-blue-800 text-sm rounded-full font-medium">
                         <i class="fas fa-layer-group mr-1" aria-hidden="true"></i>
                         {{ \App\Models\Material::getTingkatOptions()[$material->tingkat] ?? $material->tingkat }}
                     </span>
+                    
+                    @if($material->kelas)
+                    <span class="px-3 py-1 bg-indigo-100 text-indigo-800 text-sm rounded-full font-medium">
+                        <i class="fas fa-graduation-cap mr-1" aria-hidden="true"></i>
+                        {{ $material->kelas_display }}
+                    </span>
+                    @endif
+                    
                     @if($material->kategori)
                     <span class="px-3 py-1 bg-green-100 text-green-800 text-sm rounded-full font-medium">
                         <i class="fas fa-tag mr-1" aria-hidden="true"></i>
                         {{ \App\Models\Material::getKategoriOptions()[$material->kategori] ?? $material->kategori }}
                     </span>
                     @endif
+                    
                     <span class="px-3 py-1 bg-purple-100 text-purple-800 text-sm rounded-full font-medium">
                         <i class="fas fa-file-alt mr-1" aria-hidden="true"></i>
                         {{ $material->total_halaman }} Halaman
                     </span>
+                    
                     @if($material->status === 'published')
                     <span class="px-3 py-1 bg-green-100 text-green-800 text-sm rounded-full font-medium">
                         <i class="fas fa-check-circle mr-1" aria-hidden="true"></i>

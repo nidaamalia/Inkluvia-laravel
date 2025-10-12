@@ -55,7 +55,7 @@ Route::middleware('auth')->group(function () {
             Route::get('/list', [\App\Http\Controllers\User\DeviceTextController::class, 'listDevices'])
                  ->name('list');
         });
-        
+                
         // Materi Saya routes
         Route::get('/materi-saya', [UserMaterialController::class, 'index'])->name('materi-saya');
         Route::get('/materi-saya/create', [UserMaterialController::class, 'create'])->name('materi-saya.create');
@@ -66,6 +66,11 @@ Route::middleware('auth')->group(function () {
         Route::get('/materi-saya/{material}/preview', [UserMaterialController::class, 'preview'])->name('materi-saya.preview');
         Route::get('/materi-saya/{material}/download', [UserMaterialController::class, 'download'])->name('materi-saya.download');
 
+        // NEW: Content editing routes
+        Route::get('/materi-saya/{material}/edit-content', [UserMaterialController::class, 'editContent'])->name('materi-saya.edit-content');
+        Route::post('/materi-saya/{material}/update-content', [UserMaterialController::class, 'updateContent'])->name('materi-saya.update-content');
+        Route::get('/materi-saya/{material}/page/{pageNumber}', [UserMaterialController::class, 'getPageContent'])->name('materi-saya.get-page');
+        
         // Perpustakaan routes
         Route::get('/perpustakaan', [PerpustakaanController::class, 'index'])->name('perpustakaan');
         Route::get('/materi-tersimpan', [PerpustakaanController::class, 'savedMaterials'])->name('materi-tersimpan');

@@ -77,13 +77,6 @@
                     <i class="fas fa-book mr-3" aria-hidden="true"></i>
                     Perpustakaan
                 </a>
-                
-                <a href="{{ route('user.materi-tersimpan') }}" 
-                class="nav-link {{ request()->routeIs('user.materi-tersimpan') ? 'active' : '' }}"
-                aria-label="Materi Tersimpan">
-                    <i class="fas fa-bookmark mr-3" aria-hidden="true"></i>
-                    Materi Tersimpan
-                </a>
             </nav>
         </aside>
 

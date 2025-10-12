@@ -1,11 +1,10 @@
-{{-- resources/views/user/perpustakaan.blade.php --}}
 @extends('layouts.user')
 
 @section('title', 'Perpustakaan')
 
 @section('content')
 <div class="max-w-7xl mx-auto">
-    <!-- Skip to main content link for screen readers -->
+    <!-- Skip to main content link -->
     <a href="#main-content" class="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 bg-primary text-white px-4 py-2 rounded z-50">
         Lewati ke konten utama
     </a>
@@ -16,22 +15,26 @@
             Perpustakaan Materi Braille
         </h1>
         <p class="text-lg text-gray-600">
-            Jelajahi dan akses koleksi materi pembelajaran dalam format Braille
+            Jelajahi dan akses koleksi materi pembelajaran dalam format Braille dari lembaga Anda
         </p>
     </header>
 
-    <!-- Quick Actions -->
-    <div class="bg-blue-50 border-2 border-blue-200 rounded-xl p-4 mb-6" role="region" aria-label="Aksi Cepat">
+    <!-- Quick Stats -->
+    <div class="bg-blue-50 border-2 border-blue-200 rounded-xl p-4 mb-6" role="region" aria-label="Statistik">
         <div class="flex flex-wrap items-center justify-between gap-4">
             <div class="flex items-center space-x-4">
-                <a href="{{ route('user.materi-tersimpan') }}" 
-                   class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-300 transition-colors duration-200">
-                    <i class="fas fa-bookmark mr-2" aria-hidden="true"></i>
-                    Lihat Materi Tersimpan
-                </a>
-                <span class="text-sm text-gray-700" aria-live="polite">
-                    <strong id="saved-count">{{ count($userSavedMaterials) }}</strong> materi tersimpan
-                </span>
+                <div class="flex items-center">
+                    <i class="fas fa-book text-2xl text-blue-600 mr-2" aria-hidden="true"></i>
+                    <span class="text-sm text-gray-700" aria-live="polite">
+                        <strong id="total-materials">{{ $materials->total() }}</strong> materi tersedia
+                    </span>
+                </div>
+                <div class="flex items-center">
+                    <i class="fas fa-bookmark text-2xl text-green-600 mr-2" aria-hidden="true"></i>
+                    <span class="text-sm text-gray-700" aria-live="polite">
+                        <strong id="saved-count">{{ count($userSavedMaterials) }}</strong> materi tersimpan
+                    </span>
+                </div>
             </div>
             @if($userDevices->count() > 0)
             <div class="text-sm text-green-700 bg-green-100 px-3 py-1 rounded-full">
@@ -109,6 +112,16 @@
                     </button>
                 </div>
             </div>
+
+            @if(request()->hasAny(['search', 'kategori', 'tingkat']))
+            <div class="flex justify-end">
+                <a href="{{ route('user.perpustakaan') }}" 
+                   class="text-sm text-gray-600 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary rounded px-3 py-1">
+                    <i class="fas fa-redo mr-1" aria-hidden="true"></i>
+                    Reset Filter
+                </a>
+            </div>
+            @endif
         </form>
     </section>
 
@@ -126,7 +139,7 @@
                 <div class="p-6">
                     <!-- Material Header -->
                     <header class="mb-4">
-                        <div class="flex items-start justify-between">
+                        <div class="flex items-start justify-between mb-3">
                             <div class="flex-1">
                                 <h3 class="text-xl font-bold text-gray-900 mb-2">
                                     {{ $material->judul }}
@@ -148,21 +161,11 @@
                                         <span aria-label="Jumlah halaman">{{ $material->total_halaman }} Halaman</span>
                                     </span>
                                     <span class="px-3 py-1 bg-gray-100 text-gray-800 text-sm rounded-full font-medium" role="listitem">
-                                        <i class="fas fa-{{ $material->akses === 'public' ? 'globe' : 'building' }} mr-1" aria-hidden="true"></i>
+                                        <i class="fas fa-building mr-1" aria-hidden="true"></i>
                                         <span aria-label="Tingkat akses">{{ $material->akses_display }}</span>
                                     </span>
                                 </div>
                             </div>
-                            
-                            <!-- Save Toggle -->
-                            <button onclick="toggleSaved({{ $material->id }})"
-                                    class="ml-4 p-3 rounded-lg hover:bg-gray-100 focus:outline-none focus:ring-4 focus:ring-blue-300 transition-colors duration-200"
-                                    aria-label="{{ in_array($material->id, $userSavedMaterials) ? 'Hapus dari materi tersimpan' : 'Simpan materi ini' }}"
-                                    data-material-id="{{ $material->id }}">
-                                <i class="fas fa-bookmark text-2xl {{ in_array($material->id, $userSavedMaterials) ? 'text-blue-600' : 'text-gray-300' }}"
-                                   id="saved-icon-{{ $material->id }}"
-                                   aria-hidden="true"></i>
-                            </button>
                         </div>
 
                         <!-- Description -->
@@ -195,24 +198,25 @@
                     <div class="flex flex-wrap gap-3" role="group" aria-label="Aksi untuk materi {{ $material->judul }}">
                         <!-- Preview Button -->
                         <a href="{{ route('user.perpustakaan.preview-page', $material) }}"
-                        class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-300 text-lg font-medium transition-colors duration-200 inline-flex items-center">
+                           class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-300 text-lg font-medium transition-colors duration-200 inline-flex items-center">
                             <i class="fas fa-eye mr-2" aria-hidden="true"></i>
                             Lihat Detail
                         </a>
                         
                         <!-- Send to Device Button -->
                         <a href="{{ route('user.perpustakaan.send', $material) }}"
-                        class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 focus:outline-none focus:ring-4 focus:ring-green-300 text-lg font-medium transition-colors duration-200 inline-flex items-center">
+                           class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 focus:outline-none focus:ring-4 focus:ring-green-300 text-lg font-medium transition-colors duration-200 inline-flex items-center">
                             <i class="fas fa-paper-plane mr-2" aria-hidden="true"></i>
                             Kirim ke EduBraille
                         </a>
-                        <!-- Save Button -->
+
+                        <!-- Save/Unsave Button -->
                         <button onclick="toggleSaved({{ $material->id }})"
-                                class="px-4 py-2 rounded-lg focus:outline-none focus:ring-4 text-lg font-medium transition-colors duration-200 inline-flex items-center {{ in_array($material->id, $userSavedMaterials) ? 'bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-300' : 'bg-gray-200 text-gray-700 hover:bg-gray-300 focus:ring-gray-300' }}"
+                                class="px-4 py-2 rounded-lg focus:outline-none focus:ring-4 text-lg font-medium transition-colors duration-200 inline-flex items-center save-btn-{{ $material->id }} {{ in_array($material->id, $userSavedMaterials) ? 'bg-yellow-500 text-white hover:bg-yellow-600 focus:ring-yellow-300' : 'bg-gray-200 text-gray-700 hover:bg-gray-300 focus:ring-gray-300' }}"
                                 aria-label="{{ in_array($material->id, $userSavedMaterials) ? 'Hapus dari daftar tersimpan' : 'Simpan materi ini' }}"
                                 data-material-id="{{ $material->id }}">
                             <i class="fas fa-bookmark mr-2" aria-hidden="true"></i>
-                            <span id="save-text-{{ $material->id }}">{{ in_array($material->id, $userSavedMaterials) ? 'Tersimpan' : 'Simpan' }}</span>
+                            <span class="save-text-{{ $material->id }}">{{ in_array($material->id, $userSavedMaterials) ? 'Tersimpan' : 'Simpan' }}</span>
                         </button>
                     </div>
                 </div>
@@ -221,9 +225,11 @@
         </div>
 
         <!-- Pagination -->
+        @if($materials->hasPages())
         <nav aria-label="Navigasi halaman" class="bg-white rounded-xl shadow-sm p-4">
             {{ $materials->links('pagination::tailwind') }}
         </nav>
+        @endif
         @else
         <!-- Empty State -->
         <div class="bg-white rounded-xl shadow-sm p-12 text-center">
@@ -233,7 +239,7 @@
                 @if(request('search') || request('kategori') || request('tingkat'))
                     Tidak ada materi yang sesuai dengan filter yang Anda pilih.
                 @else
-                    Belum ada materi yang tersedia di perpustakaan.
+                    Belum ada materi yang tersedia di perpustakaan lembaga Anda.
                 @endif
             </p>
             @if(request()->hasAny(['search', 'kategori', 'tingkat']))
@@ -268,16 +274,16 @@ function toggleSaved(materialId) {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            const button = document.querySelector(`[data-material-id="${materialId}"]`);
-            const text = document.getElementById(`save-text-${materialId}`);
+            const button = document.querySelector(`.save-btn-${materialId}`);
+            const text = document.querySelector(`.save-text-${materialId}`);
             
             if (data.is_saved) {
-                button.className = 'px-4 py-2 rounded-lg focus:outline-none focus:ring-4 text-lg font-medium transition-colors duration-200 inline-flex items-center bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-300';
+                button.className = 'px-4 py-2 rounded-lg focus:outline-none focus:ring-4 text-lg font-medium transition-colors duration-200 inline-flex items-center save-btn-' + materialId + ' bg-yellow-500 text-white hover:bg-yellow-600 focus:ring-yellow-300';
                 button.setAttribute('aria-label', 'Hapus dari daftar tersimpan');
                 text.textContent = 'Tersimpan';
                 savedCount++;
             } else {
-                button.className = 'px-4 py-2 rounded-lg focus:outline-none focus:ring-4 text-lg font-medium transition-colors duration-200 inline-flex items-center bg-gray-200 text-gray-700 hover:bg-gray-300 focus:ring-gray-300';
+                button.className = 'px-4 py-2 rounded-lg focus:outline-none focus:ring-4 text-lg font-medium transition-colors duration-200 inline-flex items-center save-btn-' + materialId + ' bg-gray-200 text-gray-700 hover:bg-gray-300 focus:ring-gray-300';
                 button.setAttribute('aria-label', 'Simpan materi ini');
                 text.textContent = 'Simpan';
                 savedCount--;
@@ -303,7 +309,6 @@ function announceToScreenReader(message) {
     const announcement = document.getElementById('announcements');
     announcement.textContent = message;
     
-    // Clear after announcement is read
     setTimeout(() => {
         announcement.textContent = '';
     }, 1000);
@@ -311,7 +316,6 @@ function announceToScreenReader(message) {
 
 // Keyboard navigation enhancements
 document.addEventListener('keydown', function(e) {
-    // Add keyboard shortcuts for accessibility
     if (e.ctrlKey && e.key === 'f') {
         e.preventDefault();
         document.getElementById('search').focus();
@@ -321,13 +325,10 @@ document.addEventListener('keydown', function(e) {
 
 // Initialize accessibility features
 document.addEventListener('DOMContentLoaded', function() {
-    // Add keyboard support for card navigation
     const materialCards = document.querySelectorAll('article');
     materialCards.forEach((card, index) => {
-        // Add tabindex for keyboard navigation
         card.setAttribute('tabindex', '0');
         
-        // Add keyboard event listeners
         card.addEventListener('keydown', function(e) {
             if (e.key === 'Enter' || e.key === ' ') {
                 e.preventDefault();
@@ -339,7 +340,6 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
-    // Announce page load completion
     announceToScreenReader(`Halaman perpustakaan dimuat. Menampilkan ${materialCards.length} materi.`);
 });
 </script>
@@ -347,13 +347,11 @@ document.addEventListener('DOMContentLoaded', function() {
 
 @push('styles')
 <style>
-/* Enhanced accessibility styles */
 .focus\:ring-4:focus {
     outline: none;
     box-shadow: 0 0 0 4px rgba(81, 53, 135, 0.3);
 }
 
-/* High contrast mode support */
 @media (prefers-contrast: high) {
     .border-2 {
         border-width: 3px;
@@ -362,13 +360,8 @@ document.addEventListener('DOMContentLoaded', function() {
     .text-gray-600 {
         color: #374151;
     }
-    
-    .bg-gray-100 {
-        background-color: #f3f4f6;
-    }
 }
 
-/* Reduced motion for accessibility */
 @media (prefers-reduced-motion: reduce) {
     * {
         animation-duration: 0.01ms !important;
@@ -377,12 +370,10 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 }
 
-/* Ensure interactive elements are large enough (44px minimum) */
 button, a, input, select {
     min-height: 44px;
 }
 
-/* Screen reader only content */
 .sr-only {
     position: absolute;
     width: 1px;
@@ -413,7 +404,6 @@ button, a, input, select {
     z-index: 9999;
 }
 
-/* Focus styles for card navigation */
 article:focus {
     outline: 3px solid #513587;
     outline-offset: 2px;
@@ -421,27 +411,9 @@ article:focus {
     box-shadow: 0 8px 25px -5px rgba(0, 0, 0, 0.1);
 }
 
-/* Improved button states */
 button:disabled {
     opacity: 0.6;
     cursor: not-allowed;
-}
-
-/* Skip link styles */
-.skip-link {
-    position: absolute;
-    top: -40px;
-    left: 6px;
-    background: #513587;
-    color: white;
-    padding: 8px;
-    border-radius: 4px;
-    text-decoration: none;
-    z-index: 1000;
-}
-
-.skip-link:focus {
-    top: 6px;
 }
 </style>
 @endpush

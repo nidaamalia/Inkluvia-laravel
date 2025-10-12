@@ -1,5 +1,4 @@
 <?php
-// app/Models/Material.php
 
 namespace App\Models;
 
@@ -13,11 +12,9 @@ class Material extends Model
     protected $fillable = [
         'judul',
         'deskripsi',
-        'tahun_terbit',
-        'penerbit',
-        'edisi',
         'kategori',
         'tingkat',
+        'kelas',
         'status',
         'akses',
         'created_by',
@@ -65,8 +62,6 @@ class Material extends Model
     {
         return match($this->akses) {
             'public' => 'success',
-            'premium' => 'warning',
-            'restricted' => 'info',
             'private' => 'secondary',
             default => 'secondary'
         };
@@ -87,36 +82,38 @@ class Material extends Model
         return $query->where('tingkat', $tingkat);
     }
 
+    public function scopeByKelas($query, $kelas)
+    {
+        return $query->where('kelas', $kelas);
+    }
+
     /**
-     * Scope untuk mendapatkan materi yang dapat diakses oleh user
-     * - Public: semua user dapat akses
-     * - Private: hanya creator yang dapat akses
-     * - Restricted: hanya user dari lembaga yang sama (kecuali pengguna mandiri)
+     * Scope untuk mendapatkan materi yang dapat diakses oleh user di perpustakaan
+     * 
+     * RULES:
+     * 1. Materi dari ADMIN → Tampil untuk SEMUA user
+     * 2. Materi dari USER:
+     *    - Private: TIDAK tampil di perpustakaan
+     *    - Public: Tampil hanya untuk user dari lembaga yang sama
      */
     public function scopeAccessibleBy($query, $user)
     {
         return $query->where(function($q) use ($user) {
-            // Public materials - dapat diakses semua user
-            $q->where('akses', 'public')
-              // Private materials - hanya creator
-              ->orWhere(function($subQ) use ($user) {
-                  $subQ->where('akses', 'private')
-                       ->where('created_by', $user->id);
-              })
-              // Restricted materials - hanya dari lembaga yang sama (kecuali pengguna mandiri)
-              ->orWhere(function($subQ) use ($user) {
-                  $subQ->where('akses', 'restricted');
-                  
-                  // Jika user memiliki lembaga dan bukan pengguna mandiri
-                  if ($user->lembaga_id && $user->lembaga && $user->lembaga->type !== 'Individu') {
-                      $subQ->whereHas('creator.lembaga', function($lembagaQuery) use ($user) {
-                          $lembagaQuery->where('id', $user->lembaga_id);
-                      });
-                  } else {
-                      // Jika user adalah pengguna mandiri, tidak dapat akses materi restricted
-                      $subQ->whereRaw('1 = 0');
-                  }
-              });
+            // 1. Materi dari ADMIN - tampil untuk semua user
+            $q->whereHas('creator', function($creatorQuery) {
+                $creatorQuery->where('role', 'admin');
+            });
+            
+            // 2. Materi PUBLIC dari USER dengan lembaga yang sama
+            if ($user->lembaga_id && $user->lembaga && $user->lembaga->type !== 'Individu') {
+                $q->orWhere(function($subQ) use ($user) {
+                    $subQ->where('akses', 'public')
+                         ->whereHas('creator', function($creatorQuery) use ($user) {
+                             $creatorQuery->where('role', 'user')
+                                          ->where('lembaga_id', $user->lembaga_id);
+                         });
+                });
+            }
         });
     }
 
@@ -124,10 +121,13 @@ class Material extends Model
     {
         return [
             'matematika' => 'Matematika',
-            'bahasa' => 'Bahasa',
+            'bahasa_indonesia' => 'Bahasa Indonesia',
+            'bahasa_inggris' => 'Bahasa Inggris',
             'ipa' => 'IPA',
             'ips' => 'IPS',
             'agama' => 'Agama',
+            'seni_budaya' => 'Seni Budaya',
+            'penjas' => 'Pendidikan Jasmani',
             'umum' => 'Umum'
         ];
     }
@@ -135,33 +135,60 @@ class Material extends Model
     public static function getTingkatOptions()
     {
         return [
-            'paud' => 'PAUD',
             'sd' => 'SD',
             'smp' => 'SMP',
             'sma' => 'SMA',
-            'perguruan_tinggi' => 'Perguruan Tinggi',
             'umum' => 'Umum'
+        ];
+    }
+
+    public static function getKelasOptions()
+    {
+        return [
+            
+            // SD
+            '1' => 'Kelas 1',
+            '2' => 'Kelas 2',
+            '3' => 'Kelas 3',
+            '4' => 'Kelas 4',
+            '5' => 'Kelas 5',
+            '6' => 'Kelas 6',
+            
+            // SMP
+            '7' => 'Kelas 7',
+            '8' => 'Kelas 8',
+            '9' => 'Kelas 9',
+            
+            // SMA
+            '10' => 'Kelas 10',
+            '11' => 'Kelas 11',
+            '12' => 'Kelas 12',
+            
+            // Umum
+            'semua' => 'Semua Kelas'
         ];
     }
 
     public static function getAksesOptions()
     {
         return [
-            'public' => 'Publik',
-            'premium' => 'Premium',
-            'restricted' => 'Terbatas',
-            'private' => 'Privat'
+            'private' => 'Privat (Hanya Saya)',
+            'public' => 'Publik (Lembaga Saya)',
         ];
     }
     
     public function getAksesDisplayAttribute()
     {
         return match($this->akses) {
-            'public' => 'Publik',
-            'premium' => 'Premium',
-            'restricted' => 'Terbatas',
+            'public' => 'Publik (Lembaga)',
             'private' => 'Privat',
             default => 'Tidak Diketahui'
         };
+    }
+    
+    public function getKelasDisplayAttribute()
+    {
+        $kelasOptions = self::getKelasOptions();
+        return $kelasOptions[$this->kelas] ?? $this->kelas ?? '-';
     }
 }

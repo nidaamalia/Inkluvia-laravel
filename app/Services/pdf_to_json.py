@@ -51,7 +51,9 @@ def extract_text_from_pdf(
         gemini_client = GeminiPdfProcessor(api_key=resolved_api_key)
 
     try:
-        for page_num in range(doc.page_count):
+        total_pages = doc.page_count
+        
+        for page_num in range(total_pages):
             page = doc.load_page(page_num)
             lines = []
             blocks = page.get_text("blocks")
@@ -62,11 +64,23 @@ def extract_text_from_pdf(
                 if text:
                     for line in text.splitlines():
                         if line.strip():
-                            lines.append({
-                                "line": line_number,
-                                "text": line.strip()
-                            })
-                            line_number += 1
+                            # Apply sanitization if using Gemini
+                            if gemini_client:
+                                cleaned = gemini_client.sanitize_content(line.strip(), page_num + 1, total_pages)
+                                if cleaned:
+                                    processed = gemini_client.process_text_line(cleaned)
+                                    if processed:
+                                        lines.append({
+                                            "line": line_number,
+                                            "text": processed
+                                        })
+                                        line_number += 1
+                            else:
+                                lines.append({
+                                    "line": line_number,
+                                    "text": line.strip()
+                                })
+                                line_number += 1
 
             if auto_caption and gemini_client:
                 images = page.get_images(full=True)
@@ -113,13 +127,11 @@ def extract_text_from_pdf(
 
                 for candidate in selected_images:
                     try:
-                        caption_text = gemini_client.caption_image(
-                            candidate["bytes"],
-                            max_words=max_caption_words
-                        )
+                        # Use the detailed caption method
+                        caption_text = gemini_client.caption_image_detailed(candidate["bytes"])
                         lines.append({
                             "line": line_number,
-                            "text": f"[Gambar: {caption_text}]"
+                            "text": f"[Deskripsi Gambar: {caption_text}]"
                         })
                         line_number += 1
                         total_captions += 1
@@ -155,7 +167,7 @@ def extract_metadata(pdf_path):
 
 
 def main():
-    ap = argparse.ArgumentParser(description="PDF -> JSON (pages + lines) with optional Gemini auto-captioning")
+    ap = argparse.ArgumentParser(description="PDF -> JSON with accessibility features")
     ap.add_argument("pdf", help="Path to input PDF file")
     ap.add_argument("-o", "--output", help="Path to output JSON (default: input.json beside PDF)")
     ap.add_argument("--judul", help="Override judul (title)")
@@ -166,13 +178,13 @@ def main():
         "--auto-caption",
         action="store_true",
         default=False,
-        help="Automatically caption PDF images using Google Gemini"
+        help="Automatically caption PDF images using Google Gemini with detailed descriptions"
     )
     ap.add_argument(
         "--caption-max-words",
         type=int,
         default=DEFAULT_CAPTION_MAX_WORDS,
-        help="Maximum number of words per image caption"
+        help="Maximum number of words per image caption (ignored for detailed captions)"
     )
     ap.add_argument(
         "--gemini-api-key",
@@ -216,11 +228,16 @@ def main():
         "tahun": args.tahun or meta["tahun"],
         "edisi": args.edisi or meta["edisi"],
         "pages": pages,
-        "processing_method": "pdf_to_json_with_auto_caption" if args.auto_caption else "pdf_to_json"
+        "processing_method": "pdf_to_json_with_accessibility" if args.auto_caption else "pdf_to_json"
     }
 
     if args.auto_caption:
         payload["images_captioned"] = stats.get("images_captioned", 0)
+        payload["accessibility_features"] = [
+            "detailed_image_captions",
+            "content_sanitization",
+            "math_chemistry_conversion"
+        ]
 
     with open(out_path, "w", encoding="utf-8") as f:
         json.dump(payload, f, ensure_ascii=False, indent=2)
