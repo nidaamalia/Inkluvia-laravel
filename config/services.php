@@ -44,4 +44,10 @@ return [
         'min_image_area_ratio' => env('GEMINI_MIN_IMAGE_AREA_RATIO', 0.01),
     ],
 
+    'openai' => [
+        'api_key' => env('OPENAI_API_KEY', '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'),
+        'model' => env('OPENAI_MODEL', 'gpt-4o-mini'),
+        'temperature' => env('OPENAI_TEMPERATURE', 0.3),
+    ],
+
 ];

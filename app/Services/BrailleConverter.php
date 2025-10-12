@@ -167,25 +167,38 @@ class BrailleConverter
 
     public function toBraille(string $src): string
     {
+        if (empty($src)) {
+            return '';
+        }
 
+        // Step 1: Convert math functions
         $out = $this->convertMathFunctions($src);
+        
+        // Step 2: Convert math constants
         $out = $this->convertMathConstants($out);
 
+        // Step 3: Convert roots
         $out = $this->convertRoots($out);
 
+        // Step 4: Convert exponents
         $out = $this->convertExponents($out);
 
+        // Step 5: Convert fractions
         $out = $this->convertFractions($out);
 
+        // Step 6: Insert multiplication between number and variable
         $out = $this->insertMulBetweenNumberAndVariable($out);
 
+        // Step 7: Apply UEB math rules
         $out = $this->applyUebMathRules($out);
 
+        // Step 8: Convert numeric runs
         $out = $this->convertNumericRuns($out);
 
-
+        // Step 9: Map characters to Braille
         $out = $this->mapChars($out);
 
+        // Step 10: Post-process cleanup
         $out = $this->postTidy($out);
 
         return $out;

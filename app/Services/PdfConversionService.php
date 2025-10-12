@@ -13,11 +13,13 @@ class PdfConversionService
 {
     private $pythonScriptPath;
     private $tempDir;
+    private $brailleConverter;
 
     public function __construct()
     {
         $this->pythonScriptPath = app_path('Services/pdf_converter.py');
         $this->tempDir = storage_path('app/temp');
+        $this->brailleConverter = new BrailleConverter();
         
         // Ensure temp directory exists
         if (!file_exists($this->tempDir)) {
@@ -40,7 +42,7 @@ class PdfConversionService
                 throw new Exception('Failed to read JSON data from file: ' . $material->file_path);
             }
 
-            // Step 2: Convert text to Braille
+            // Step 2: Convert text to Braille using BrailleConverter
             $brailleContent = $this->convertTextToBraille($jsonData);
 
             // Step 3: Save Braille content
@@ -51,7 +53,7 @@ class PdfConversionService
             $material->update([
                 'braille_data_path' => $brailleDataPath,
                 'total_halaman' => $pageCount,
-                'status' => 'review' // Ready for review
+                'status' => 'published'
             ]);
 
             Log::info("PDF to Braille conversion completed for material ID: {$material->id}");
@@ -88,17 +90,16 @@ class PdfConversionService
     }
 
     /**
-     * Convert extracted text to Braille
+     * Convert extracted text to Braille using BrailleConverter
      */
     private function convertTextToBraille($jsonData)
     {
-        // Return the full JSON structure with braille content
         if (isset($jsonData['pages']) && is_array($jsonData['pages'])) {
             $brailleJson = [
-                'judul' => $this->placeholderBrailleConversion($jsonData['judul'] ?? ''),
-                'penerbit' => $this->placeholderBrailleConversion($jsonData['penerbit'] ?? ''),
-                'tahun' => $this->placeholderBrailleConversion($jsonData['tahun'] ?? ''),
-                'edisi' => $this->placeholderBrailleConversion($jsonData['edisi'] ?? ''),
+                'judul' => $this->brailleConverter->toBraille($jsonData['judul'] ?? ''),
+                'penerbit' => $this->brailleConverter->toBraille($jsonData['penerbit'] ?? ''),
+                'tahun' => $this->brailleConverter->toBraille($jsonData['tahun'] ?? ''),
+                'edisi' => $this->brailleConverter->toBraille($jsonData['edisi'] ?? ''),
                 'pages' => []
             ];
             
@@ -108,44 +109,13 @@ class PdfConversionService
             }
             
             return $brailleJson;
-        } else {
-            // Fallback for old structure
-            $brailleContent = [];
-            foreach ($jsonData as $pageIndex => $pageData) {
-                $pageContent = $this->convertPageToBraille($pageData);
-                $brailleContent[] = [
-                    'page_number' => (int)$pageIndex + 1,
-                    'content' => $pageContent,
-                    'original_text' => $pageData['text'] ?? '',
-                    'metadata' => $pageData['metadata'] ?? []
-                ];
-            }
-            return $brailleContent;
         }
+        
+        return ['pages' => []];
     }
 
     /**
-     * Extract text from page data structure
-     */
-    private function extractTextFromPage($pageData)
-    {
-        $text = '';
-        
-        if (isset($pageData['lines']) && is_array($pageData['lines'])) {
-            foreach ($pageData['lines'] as $line) {
-                if (isset($line['text'])) {
-                    $text .= $line['text'] . "\n";
-                }
-            }
-        } elseif (isset($pageData['text'])) {
-            $text = $pageData['text'];
-        }
-        
-        return trim($text);
-    }
-
-    /**
-     * Convert a single page to Braille
+     * Convert a single page to Braille using BrailleConverter
      */
     private function convertPageToBraille($pageData)
     {
@@ -157,11 +127,20 @@ class PdfConversionService
         if (isset($pageData['lines']) && is_array($pageData['lines'])) {
             foreach ($pageData['lines'] as $index => $line) {
                 if (isset($line['text']) && !empty(trim($line['text']))) {
-                    $brailleResult = $this->placeholderBrailleConversion($line['text'], true);
+                    $originalText = trim($line['text']);
+                    
+                    // Convert to Braille using BrailleConverter
+                    $brailleText = $this->brailleConverter->toBraille($originalText);
+                    
+                    // Get decimal values for each character
+                    $decimalValues = $this->convertBrailleToDecimalValues($brailleText);
+                    
                     $braillePage['lines'][] = [
                         'line' => $index + 1,
-                        'text' => $brailleResult['text'],
-                        'decimal' => $brailleResult['decimal']
+                        'text' => $brailleText,
+                        'original_text' => $originalText,
+                        'decimal_values' => $decimalValues,
+                        'decimal' => implode('', $decimalValues)
                     ];
                 }
             }
@@ -171,85 +150,50 @@ class PdfConversionService
     }
 
     /**
-     * Placeholder Braille conversion (NOT real Braille)
-     * Replace this with actual Braille conversion logic
+     * Convert Braille Unicode text to decimal values
      */
-    private function placeholderBrailleConversion($text, bool $withDecimal = false)
+    private function convertBrailleToDecimalValues(string $brailleText): array
     {
-        // This is just a placeholder - NOT actual Braille conversion
-        // You need to implement real Braille conversion here
-        
-        // Convert to string if it's not already
-        $text = (string) $text;
-        
-        if (empty($text)) {
-            return $withDecimal ? ['text' => '', 'decimal' => ''] : '';
+        if (empty($brailleText)) {
+            return [];
         }
-        
-        $brailleMap = [
-            'a' => '⠁', 'b' => '⠃', 'c' => '⠉', 'd' => '⠙', 'e' => '⠑',
-            'f' => '⠋', 'g' => '⠛', 'h' => '⠓', 'i' => '⠊', 'j' => '⠚',
-            'k' => '⠅', 'l' => '⠇', 'm' => '⠍', 'n' => '⠝', 'o' => '⠕',
-            'p' => '⠏', 'q' => '⠟', 'r' => '⠗', 's' => '⠎', 't' => '⠞',
-            'u' => '⠥', 'v' => '⠧', 'w' => '⠺', 'x' => '⠭', 'y' => '⠽', 'z' => '⠵',
-            ' ' => '⠀', // Braille space
-            '1' => '⠂', '2' => '⠆', '3' => '⠒', '4' => '⠲', '5' => '⠢',
-            '6' => '⠖', '7' => '⠶', '8' => '⠦', '9' => '⠔', '0' => '⠴'
-        ];
 
-        $brailleChars = [];
-        $decimalParts = [];
+        $decimalValues = [];
+        $length = mb_strlen($brailleText, 'UTF-8');
 
-        $length = mb_strlen($text, 'UTF-8');
         for ($i = 0; $i < $length; $i++) {
-            $char = mb_substr($text, $i, 1, 'UTF-8');
-            $char = mb_strtolower($char, 'UTF-8');
-
-            $brailleChar = $brailleMap[$char] ?? '⠿'; // Unknown character symbol
-            $brailleChars[] = $brailleChar;
-
-            if ($withDecimal) {
-                $decimalParts[] = $this->convertBrailleCharToDecimalString($brailleChar);
-            }
+            $char = mb_substr($brailleText, $i, 1, 'UTF-8');
+            $decimal = $this->brailleCharToDecimal($char);
+            $decimalValues[] = str_pad((string)$decimal, 2, '0', STR_PAD_LEFT);
         }
 
-        $brailleString = implode('', $brailleChars);
-
-        if (!$withDecimal) {
-            return $brailleString;
-        }
-
-        return [
-            'text' => $brailleString,
-            'decimal' => implode('', $decimalParts)
-        ];
+        return $decimalValues;
     }
 
-    private function convertBrailleCharToDecimalString(string $brailleChar): string
+    /**
+     * Convert a single Braille character to decimal value
+     */
+    private function brailleCharToDecimal(string $brailleChar): int
     {
         $codePoint = $this->getCodePoint($brailleChar);
 
         if ($codePoint === null || $codePoint < 0x2800 || $codePoint > 0x28FF) {
-            return '63';
+            return 0; // Return 0 for space or invalid characters
         }
 
+        // Braille pattern dots are stored in bits 0-5 of the offset from 0x2800
         $mask = $codePoint - 0x2800;
-        $mask &= 0b00111111;
-
-        $binary = '';
-        for ($i = 0; $i < 6; $i++) {
-            $binary .= ($mask & (1 << $i)) ? '1' : '0';
-        }
-
-        $decimal = bindec($binary);
-
-        return str_pad((string) $decimal, 2, '0', STR_PAD_LEFT);
+        
+        return $mask & 0b00111111; // Extract 6 bits
     }
 
+    /**
+     * Get Unicode code point of a character
+     */
     private function getCodePoint(string $char): ?int
     {
-        if ($char === '') {
-            return null;
+        if ($char === '' || $char === ' ') {
+            return 0x2800; // Braille space
         }
 
         $encoded = mb_convert_encoding($char, 'UCS-4BE', 'UTF-8');
@@ -261,123 +205,16 @@ class PdfConversionService
 
         return $codePoint[1] ?? null;
     }
-    
-    /**
-     * Convert single line of text to Braille using the BrailleConverter
-     */
-    private function convertLineToBraille($text)
-    {
-        // Preprocess mathematical content
-        $text = $this->preprocessMathContent($text);
-        
-        return $this->brailleConverter->convertLine($text);
-    }
-
-    /**
-     * Preprocess mathematical content for better conversion
-     */
-    private function preprocessMathContent($text)
-    {
-        // Normalize mathematical symbols
-        $text = $this->normalizeMathSymbols($text);
-        
-        // Handle mathematical expressions
-        $text = $this->handleMathExpressions($text);
-        
-        // Clean up spacing around mathematical symbols
-        $text = $this->cleanMathSpacing($text);
-        
-        return $text;
-    }
-
-    /**
-     * Normalize mathematical symbols to standard Unicode
-     */
-    private function normalizeMathSymbols($text)
-    {
-        $normalizations = [
-            // Common ASCII alternatives to proper mathematical symbols
-            '!=' => '≠',
-            '<=' => '≤',
-            '>=' => '≥',
-            '~=' => '≈',
-            '+-' => '±',
-            '-+' => '∓',
-            '*' => '×', // when used as multiplication
-            '/' => '÷', // when used as division
-            '^' => '^', // keep as is for exponents
-            'sqrt' => '√',
-            'inf' => '∞',
-            'pi' => 'π',
-            'alpha' => 'α',
-            'beta' => 'β',
-            'gamma' => 'γ',
-            'delta' => 'δ',
-            'epsilon' => 'ε',
-            'theta' => 'θ',
-            'lambda' => 'λ',
-            'mu' => 'μ',
-            'sigma' => 'σ',
-            'phi' => 'φ',
-            'omega' => 'ω',
-        ];
-        
-        foreach ($normalizations as $ascii => $unicode) {
-            $text = str_replace($ascii, $unicode, $text);
-        }
-        
-        return $text;
-    }
-
-    /**
-     * Handle mathematical expressions and equations
-     */
-    private function handleMathExpressions($text)
-    {
-        // Handle common mathematical patterns
-        
-        // Fractions: a/b -> a÷b
-        $text = preg_replace('/(\w+)\/(\w+)/u', '$1÷$2', $text);
-        
-        // Powers: x^2 -> x^2 (keep as is)
-        // This is already handled by the BrailleConverter
-        
-        // Square roots: sqrt(x) -> √x
-        $text = preg_replace('/sqrt\s*\(([^)]+)\)/u', '√$1', $text);
-        
-        // Mathematical functions
-        $functions = ['sin', 'cos', 'tan', 'log', 'ln', 'exp', 'abs', 'max', 'min', 'lim', 'sum', 'prod', 'int'];
-        foreach ($functions as $func) {
-            $text = preg_replace('/\b' . $func . '\s*\(/u', $func . '(', $text);
-        }
-        
-        return $text;
-    }
-
-    /**
-     * Clean up spacing around mathematical symbols
-     */
-    private function cleanMathSpacing($text)
-    {
-        // Remove extra spaces around mathematical operators
-        $text = preg_replace('/\s*([+\-×÷=<>≤≥≠±∓])\s*/u', '$1', $text);
-        
-        // Ensure proper spacing around comparison operators
-        $text = preg_replace('/([^=])(=)([^=])/u', '$1 $2 $3', $text);
-        $text = preg_replace('/([^<])([<≥≤])([^=])/u', '$1 $2 $3', $text);
-        $text = preg_replace('/([^>])([>≤≥])([^=])/u', '$1 $2 $3', $text);
-        
-        return $text;
-    }
 
     /**
      * Save Braille content to database and file
      */
     private function saveBrailleContent(Material $material, $brailleContent)
     {
-        // Handle new JSON structure
+        // Clear existing Braille content
+        MaterialBrailleContent::where('material_id', $material->id)->delete();
+
         if (isset($brailleContent['pages']) && is_array($brailleContent['pages'])) {
-            // New structure with full JSON
             foreach ($brailleContent['pages'] as $pageData) {
                 $brailleText = '';
                 $originalText = '';
@@ -387,7 +224,8 @@ class PdfConversionService
                 if (isset($pageData['lines']) && is_array($pageData['lines'])) {
                     foreach ($pageData['lines'] as $line) {
                         $brailleText .= $line['text'] . "\n";
-                        $characterCount += strlen($line['text']);
+                        $originalText .= ($line['original_text'] ?? '') . "\n";
+                        $characterCount += mb_strlen($line['text'], 'UTF-8');
                     }
                     $lineCount = count($pageData['lines']);
                 }
@@ -396,7 +234,7 @@ class PdfConversionService
                     'material_id' => $material->id,
                     'page_number' => $pageData['page'] ?? 1,
                     'braille_text' => trim($brailleText),
-                    'original_text' => $originalText,
+                    'original_text' => trim($originalText),
                     'metadata' => [
                         'judul' => $brailleContent['judul'] ?? '',
                         'penerbit' => $brailleContent['penerbit'] ?? '',
@@ -407,26 +245,16 @@ class PdfConversionService
                     'character_count' => $characterCount
                 ]);
             }
-        } else {
-            // Old structure fallback
-            foreach ($brailleContent as $pageData) {
-                MaterialBrailleContent::create([
-                    'material_id' => $material->id,
-                    'page_number' => $pageData['page_number'],
-                    'braille_text' => $pageData['content']['braille_text'],
-                    'original_text' => $pageData['original_text'],
-                    'metadata' => $pageData['metadata'],
-                    'line_count' => $pageData['content']['line_count'],
-                    'character_count' => $pageData['content']['character_count']
-                ]);
-            }
         }
 
         // Save to file
         $fileName = 'braille_' . $material->id . '_' . time() . '.json';
         $filePath = 'materials/braille/' . $fileName;
         
-        Storage::disk('private')->put($filePath, json_encode($brailleContent, JSON_PRETTY_PRINT));
+        Storage::disk('private')->put(
+            $filePath, 
+            json_encode($brailleContent, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE)
+        );
 
         return $filePath;
     }
@@ -447,7 +275,7 @@ class PdfConversionService
     }
 
     /**
-     * Reconvert material (useful for testing)
+     * Reconvert material
      */
     public function reconvert(Material $material)
     {
@@ -462,7 +290,7 @@ class PdfConversionService
         $material->update([
             'braille_data_path' => null,
             'total_halaman' => 0,
-            'status' => 'draft'
+            'status' => 'processing'
         ]);
 
         // Reconvert

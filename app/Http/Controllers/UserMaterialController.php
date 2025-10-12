@@ -354,31 +354,86 @@ class UserMaterialController extends Controller
     }
 
     public function preview(Material $material)
+{
+    if ($material->created_by !== Auth::id() && 
+        !UserSavedMaterial::where('user_id', Auth::id())
+            ->where('material_id', $material->id)
+            ->exists()) {
+        abort(403, 'Anda tidak memiliki akses ke materi ini');
+    }
+
+    try {
+        // Load original JSON content
+        $jsonContent = Storage::disk('private')->get($material->file_path);
+        $jsonData = json_decode($jsonContent, true);
+
+        // Generate Braille data in real-time using BrailleConverter
+        $brailleConverter = new \App\Services\BrailleConverter();
+        $brailleData = $this->generateBrailleDataFromJsonRealtime($jsonData, $brailleConverter);
+
+        $isSaved = UserSavedMaterial::where('user_id', Auth::id())
+            ->where('material_id', $material->id)
+            ->exists();
+
+        return view('user.materi-saya.preview', compact('material', 'jsonData', 'brailleData', 'isSaved'));
+
+    } catch (\Exception $e) {
+        Log::error('Preview error: ' . $e->getMessage());
+        return view('user.materi-saya.preview', [
+            'material' => $material,
+            'jsonData' => ['pages' => []],
+            'brailleData' => null,
+            'isSaved' => false,
+            'error' => 'Gagal memuat preview materi: ' . $e->getMessage()
+        ]);
+    }
+}
+
+    /**
+     * Generate Braille data from JSON using BrailleConverter
+     */
+    private function generateBrailleDataFromJsonRealtime($jsonData, $brailleConverter)
     {
-        if ($material->created_by !== Auth::id() && 
-            !UserSavedMaterial::where('user_id', Auth::id())
-                ->where('material_id', $material->id)
-                ->exists()) {
-            abort(403, 'Anda tidak memiliki akses ke materi ini');
+        if (!$jsonData || !isset($jsonData['pages'])) {
+            return null;
         }
 
-        try {
-            $jsonContent = Storage::disk('private')->get($material->file_path);
-            $jsonData = json_decode($jsonContent, true);
+        $brailleData = [
+            'judul' => isset($jsonData['judul']) ? $brailleConverter->toBraille($jsonData['judul']) : '',
+            'pages' => []
+        ];
 
-            $isSaved = UserSavedMaterial::where('user_id', Auth::id())
-                ->where('material_id', $material->id)
-                ->exists();
+        foreach ($jsonData['pages'] as $pageData) {
+            $braillePage = [
+                'page' => $pageData['page'] ?? 1,
+                'lines' => []
+            ];
 
-            return view('user.materi-saya.preview', compact('material', 'jsonData', 'isSaved'));
+            if (isset($pageData['lines']) && is_array($pageData['lines'])) {
+                foreach ($pageData['lines'] as $line) {
+                    if (isset($line['text']) && !empty(trim($line['text']))) {
+                        $originalText = trim($line['text']);
+                        
+                        // Convert to Braille using BrailleConverter
+                        $brailleText = $brailleConverter->toBraille($originalText);
+                        
+                        // Get decimal values
+                        $decimalValues = $this->convertTextToDecimalValues($originalText);
+                        
+                        $braillePage['lines'][] = [
+                            'line' => $line['line'] ?? count($braillePage['lines']) + 1,
+                            'text' => $brailleText,
+                            'original' => $originalText,
+                            'decimal_values' => $decimalValues
+                        ];
+                    }
+                }
+            }
 
-        } catch (\Exception $e) {
-            Log::error('Preview error: ' . $e->getMessage());
-            return view('user.materi-saya.preview', [
-                'material' => $material,
-                'error' => 'Gagal memuat preview materi'
-            ]);
+            $brailleData['pages'][] = $braillePage;
         }
+
+        return $brailleData;
     }
 
     public function download(Material $material)

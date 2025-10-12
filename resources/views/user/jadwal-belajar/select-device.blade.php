@@ -102,10 +102,6 @@
                                     Online
                                 </span>
                                 @else
-                                <span class="ml-4 inline-flex items-center text-gray-400">
-                                    <i class="fas fa-circle text-xs mr-1" aria-hidden="true"></i>
-                                    Offline
-                                </span>
                                 @endif
                             </p>
                         </div>
