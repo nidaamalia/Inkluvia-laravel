@@ -51,6 +51,20 @@
                           placeholder="Tuliskan deskripsi lembaga"
                           class="w-full px-4 py-2 border rounded-lg focus:ring focus:ring-purple-300"></textarea>
             </div>
+
+            <!-- Email Lembaga -->
+            <div class="col-span-2">
+                <label class="block text-gray-700 font-medium mb-2">Email Lembaga (untuk kirim kunci)</label>
+                <input type="email" name="email" 
+                       placeholder="contoh: admin@lembaga.id"
+                       class="w-full px-4 py-2 border rounded-lg focus:ring focus:ring-purple-300">
+            </div>
+            
+            <!-- Kirim email berisi kunci setelah simpan -->
+            <div class="col-span-2 flex items-center space-x-2">
+                <input id="send_key" type="checkbox" name="send_key" value="1" class="h-4 w-4 text-purple-600 border-gray-300 rounded">
+                <label for="send_key" class="text-gray-700">Kirim email berisi kunci login setelah disimpan</label>
+            </div>
         </div>
 
         <!-- Tombol Aksi -->

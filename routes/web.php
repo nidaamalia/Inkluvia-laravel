@@ -16,18 +16,20 @@ Route::get('/', function () {
     return view('welcome');
 })->name('home');
 
-// Auth routes - Guest only
 Route::middleware('guest')->group(function () {
     Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
     Route::post('/login', [AuthController::class, 'login']);
     Route::get('/register', [AuthController::class, 'showRegister'])->name('register');
-    Route::post('/register', [AuthController::class, 'register']);
+    Route::post('/register', [AuthController::class, 'register'])->name('register.submit');
+    Route::post('/institution/register', [\App\Http\Controllers\InstitutionRegistrationController::class, 'store'])
+        ->name('institution.register');
 });
 
 // Authenticated routes
 Route::middleware('auth')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
     
+
     // Dashboard routes
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::middleware('role:admin')->get('/admin/dashboard', [DashboardController::class, 'adminDashboard'])->name('admin.dashboard');
@@ -120,6 +122,7 @@ Route::middleware('auth')->group(function () {
         Route::post('/manajemen-materi/{material}/update-status', [MaterialController::class, 'updateStatus'])->name('manajemen-materi.update-status');
         Route::post('/manajemen-materi/preview-conversion', [MaterialController::class, 'previewConversion'])->name('manajemen-materi.preview-conversion');
         Route::get('/manajemen-materi/test-conversion', [MaterialController::class, 'testConversion'])->name('manajemen-materi.test-conversion');
+        Route::post('/manajemen-materi/{material}/generate-braille', [MaterialController::class, 'generateBraille'])->name('manajemen-materi.generate-braille');
         
         // Device Management
         Route::get('/manajemen-perangkat', [DeviceController::class, 'index'])->name('kelola-perangkat');

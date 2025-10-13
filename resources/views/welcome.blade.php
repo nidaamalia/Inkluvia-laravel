@@ -77,6 +77,10 @@
                         <i class="fas fa-rocket" style="margin-right: 0.5rem;"></i>
                         Mulai Belajar
                     </button>
+                    <button class="cta" onclick="openInstitutionForm()" aria-label="Daftarkan lembaga anda melalui form">
+                        <i class="fas fa-rocket" style="margin-right: 0.5rem;"></i>
+                        Daftar Lembaga
+                    </button>
                 </div>
             </div>
         </section>
@@ -190,6 +194,77 @@
     </footer>
 
     <script src="{{ asset('js/app.js') }}"></script>
+    <script>
+        function openInstitutionForm() {
+            document.getElementById('institution-modal').style.display = 'block';
+        }
+
+        function closeInstitutionForm() {
+            document.getElementById('institution-modal').style.display = 'none';
+        }
+    </script>
+
+    <!-- Simple Modal Form -->
+    <div id="institution-modal" class="modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.6); z-index:1000;">
+        <div class="modal-content" role="dialog" aria-modal="true" aria-labelledby="institution-modal-title" style="max-width:640px; margin:5% auto; background:#fff; padding:1.5rem; border-radius:.75rem;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+                <h3 id="institution-modal-title" style="margin:0;">Daftar Lembaga</h3>
+                <button onclick="closeInstitutionForm()" aria-label="Tutup" style="background:none; border:none; font-size:1.25rem;">✕</button>
+            </div>
+            @if(session('status'))
+                <div role="status" style="margin-bottom:1rem; padding:.75rem; background:#e8f7ee; border:1px solid #b6e2c5; border-radius:.5rem; color:#146c43;">
+                    {{ session('status') }}
+                </div>
+            @endif
+            <form method="POST" action="{{ route('institution.register') }}" style="display:grid; gap:.75rem;">
+                @csrf
+                <label>
+                    <span>Nama</span>
+                    <input name="name" type="text" value="{{ old('name') }}" required style="width:100%; padding:.6rem; border:1px solid #ccc; border-radius:.5rem;">
+                </label>
+                <label>
+                    <span>Email</span>
+                    <input name="email" type="email" value="{{ old('email') }}" required style="width:100%; padding:.6rem; border:1px solid #ccc; border-radius:.5rem;">
+                </label>
+                <label>
+                    <span>Tipe</span>
+                    <select name="type" required style="width:100%; padding:.6rem; border:1px solid #ccc; border-radius:.5rem;">
+                        <option value="">Pilih tipe</option>
+                        <option value="Sekolah" @selected(old('type')==='Sekolah')>Sekolah</option>
+                        <option value="Lembaga" @selected(old('type')==='Lembaga')>Lembaga</option>
+                    </select>
+                </label>
+                <label>
+                    <span>Nama Lembaga</span>
+                    <input name="institution_name" type="text" value="{{ old('institution_name') }}" required style="width:100%; padding:.6rem; border:1px solid #ccc; border-radius:.5rem;">
+                </label>
+                <label>
+                    <span>Alamat</span>
+                    <input name="address" type="text" value="{{ old('address') }}" required style="width:100%; padding:.6rem; border:1px solid #ccc; border-radius:.5rem;">
+                </label>
+                <label>
+                    <span>Deskripsi (opsional)</span>
+                    <textarea name="description" rows="4" style="width:100%; padding:.6rem; border:1px solid #ccc; border-radius:.5rem;">{{ old('description') }}</textarea>
+                </label>
+
+                @if ($errors->any())
+                    <div role="alert" style="padding:.75rem; background:#fff4e5; border:1px solid #ffd8a8; border-radius:.5rem; color:#995c00;">
+                        <ul style="margin:0; padding-left:1rem;">
+                            @foreach ($errors->all() as $error)
+                                <li>{{ $error }}</li>
+                            @endforeach
+                        </ul>
+                    </div>
+                @endif
+
+                <div style="display:flex; gap:.5rem; justify-content:flex-end; margin-top:.25rem;">
+                    <button type="button" class="btn btn-outline" onclick="closeInstitutionForm()">Batal</button>
+                    <button type="submit" class="btn btn-primary">Kirim</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
 </body>
 
 </html>
