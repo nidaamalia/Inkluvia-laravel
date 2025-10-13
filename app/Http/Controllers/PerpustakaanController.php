@@ -82,6 +82,11 @@ class PerpustakaanController extends Controller
             $query->where('tingkat', $request->tingkat);
         }
 
+        // Filter kelas
+        if ($request->filled('kelas')) {
+            $query->where('kelas', $request->kelas);
+        }
+
         // Sorting
         $sortBy = $request->get('sort', 'created_at');
         $sortOrder = $request->get('order', 'desc');
@@ -139,6 +144,11 @@ class PerpustakaanController extends Controller
         // Filter tingkat
         if ($request->filled('tingkat')) {
             $query->where('tingkat', $request->tingkat);
+        }
+
+        // Filter kelas
+        if ($request->filled('kelas')) {
+            $query->where('kelas', $request->kelas);
         }
 
         $materials = $query->paginate(12)->withQueryString();

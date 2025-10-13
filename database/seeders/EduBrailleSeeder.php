@@ -14,8 +14,9 @@ class EduBrailleSeeder extends Seeder
         $material1 = Material::create([
             'judul' => 'Pengenalan Huruf dan Angka',
             'deskripsi' => 'Materi dasar untuk mempelajari huruf dan angka dalam braille',
-            'kategori' => 'Dasar',
+            'kategori' => 'Bahasa Indonesia',
             'tingkat' => 'SD',
+            'kelas' => '1',
             'status' => 'published',
             'akses' => 'public',
             'created_by' => 1,
@@ -66,8 +67,9 @@ class EduBrailleSeeder extends Seeder
         $material2 = Material::create([
             'judul' => 'Belajar Suku Kata',
             'deskripsi' => 'Materi untuk mempelajari suku kata dasar dalam braille',
-            'kategori' => 'Bahasa',
+            'kategori' => 'Agama',
             'tingkat' => 'SD',
+            'kelas' => '2',
             'status' => 'published',
             'akses' => 'public',
             'created_by' => 1,

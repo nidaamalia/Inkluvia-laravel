@@ -68,7 +68,7 @@
             </div>
 
             <!-- Filters -->
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <!-- Kategori Filter -->
                 <div>
                     <label for="kategori" class="block text-sm font-medium text-gray-700 mb-2">
@@ -103,6 +103,23 @@
                     </select>
                 </div>
 
+                <!-- Kelas Filter -->
+                <div>
+                    <label for="kelas" class="block text-sm font-medium text-gray-700 mb-2">
+                        Kelas
+                    </label>
+                    <select id="kelas" 
+                            name="kelas" 
+                            class="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-4 focus:ring-primary focus:border-primary text-lg">
+                        <option value="">Semua Kelas</option>
+                        @foreach(\App\Models\Material::getKelasOptions() as $value => $label)
+                            <option value="{{ $value }}" {{ request('kelas') == $value ? 'selected' : '' }}>
+                                {{ $label }}
+                            </option>
+                        @endforeach
+                    </select>
+                </div>
+
                 <!-- Submit Button -->
                 <div class="flex items-end">
                     <button type="submit" 
@@ -113,7 +130,7 @@
                 </div>
             </div>
 
-            @if(request()->hasAny(['search', 'kategori', 'tingkat']))
+            @if(request()->hasAny(['search', 'kategori', 'tingkat', 'kelas']))
             <div class="flex justify-end">
                 <a href="{{ route('user.perpustakaan') }}" 
                    class="text-sm text-gray-600 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary rounded px-3 py-1">
@@ -154,6 +171,12 @@
                                     <span class="px-3 py-1 bg-green-100 text-green-800 text-sm rounded-full font-medium" role="listitem">
                                         <i class="fas fa-tag mr-1" aria-hidden="true"></i>
                                         <span aria-label="Kategori materi">{{ \App\Models\Material::getKategoriOptions()[$material->kategori] ?? $material->kategori }}</span>
+                                    </span>
+                                    @endif
+                                    @if($material->kelas)
+                                    <span class="px-3 py-1 bg-orange-100 text-orange-800 text-sm rounded-full font-medium" role="listitem">
+                                        <i class="fas fa-graduation-cap mr-1" aria-hidden="true"></i>
+                                        <span aria-label="Kelas">{{ $material->kelas_display }}</span>
                                     </span>
                                     @endif
                                     <span class="px-3 py-1 bg-purple-100 text-purple-800 text-sm rounded-full font-medium" role="listitem">

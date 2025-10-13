@@ -46,7 +46,7 @@
     <section class="bg-white rounded-xl shadow-sm p-6 mb-6" role="search" aria-label="Filter Materi Tersimpan">
         <h2 class="text-xl font-semibold mb-4">Filter Materi</h2>
         <form method="GET" action="{{ route('user.materi-tersimpan') }}" class="space-y-4">
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
                 <!-- Search -->
                 <div class="md:col-span-2">
                     <label for="search" class="block text-sm font-medium text-gray-700 mb-2">
@@ -70,6 +70,22 @@
                         <option value="">Semua Kategori</option>
                         @foreach(\App\Models\Material::getKategoriOptions() as $value => $label)
                             <option value="{{ $value }}" {{ request('kategori') == $value ? 'selected' : '' }}>
+                                {{ $label }}
+                            </option>
+                        @endforeach
+                    </select>
+                </div>
+
+                <!-- Kelas -->
+                <div>
+                    <label for="kelas" class="block text-sm font-medium text-gray-700 mb-2">
+                        Kelas
+                    </label>
+                    <select id="kelas" name="kelas" 
+                            class="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-4 focus:ring-primary focus:border-primary">
+                        <option value="">Semua Kelas</option>
+                        @foreach(\App\Models\Material::getKelasOptions() as $value => $label)
+                            <option value="{{ $value }}" {{ request('kelas') == $value ? 'selected' : '' }}>
                                 {{ $label }}
                             </option>
                         @endforeach
@@ -172,21 +188,21 @@
         <div class="bg-white rounded-xl shadow-sm p-12 text-center">
             <i class="fas fa-bookmark text-6xl text-gray-300 mb-4" aria-hidden="true"></i>
             <h3 class="text-xl font-semibold text-gray-700 mb-2">
-                @if(request()->hasAny(['search', 'kategori', 'tingkat']))
+                @if(request()->hasAny(['search', 'kategori', 'tingkat', 'kelas']))
                     Tidak Ada Materi yang Sesuai Filter
                 @else
                     Belum Ada Materi Tersimpan
                 @endif
             </h3>
             <p class="text-gray-500 mb-6">
-                @if(request()->hasAny(['search', 'kategori', 'tingkat']))
+                @if(request()->hasAny(['search', 'kategori', 'tingkat', 'kelas']))
                     Tidak ada materi tersimpan yang sesuai dengan filter yang Anda pilih.
                 @else
                     Mulai jelajahi perpustakaan dan simpan materi yang menarik untuk Anda.
                 @endif
             </p>
             <div class="flex flex-wrap gap-3 justify-center">
-                @if(request()->hasAny(['search', 'kategori', 'tingkat']))
+                @if(request()->hasAny(['search', 'kategori', 'tingkat', 'kelas']))
                 <a href="{{ route('user.materi-tersimpan') }}" 
                    class="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 focus:outline-none focus:ring-4 focus:ring-gray-300 transition-colors duration-200">
                     <i class="fas fa-redo mr-2" aria-hidden="true"></i>
