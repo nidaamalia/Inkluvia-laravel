@@ -55,32 +55,71 @@ def extract_text_from_pdf(
         
         for page_num in range(total_pages):
             page = doc.load_page(page_num)
-            lines = []
             blocks = page.get_text("blocks")
-            line_number = 1
+            raw_lines = []
 
             for block in blocks:
                 text = block[4].strip()
-                if text:
-                    for line in text.splitlines():
-                        if line.strip():
-                            # Apply sanitization if using Gemini
-                            if gemini_client:
-                                cleaned = gemini_client.sanitize_content(line.strip(), page_num + 1, total_pages)
-                                if cleaned:
-                                    processed = gemini_client.process_text_line(cleaned)
-                                    if processed:
-                                        lines.append({
-                                            "line": line_number,
-                                            "text": processed
-                                        })
-                                        line_number += 1
-                            else:
-                                lines.append({
-                                    "line": line_number,
-                                    "text": line.strip()
-                                })
-                                line_number += 1
+                if not text:
+                    continue
+                for line in text.splitlines():
+                    trimmed = line.strip()
+                    if trimmed:
+                        raw_lines.append(trimmed)
+
+            processed_lines = []
+            line_number = 1
+
+            if gemini_client:
+                try:
+                    page_payload = [{
+                        "page": page_num + 1,
+                        "lines": [{"text": value} for value in raw_lines]
+                    }]
+
+                    sanitized_pages = gemini_client.sanitize_content(page_payload)
+                    sanitized_lines = []
+                    if sanitized_pages and isinstance(sanitized_pages, list):
+                        sanitized_page = next((p for p in sanitized_pages if p.get("page") == page_num + 1), sanitized_pages[0])
+                        sanitized_lines = sanitized_page.get("lines", []) if isinstance(sanitized_page, dict) else []
+
+                    for entry in sanitized_lines:
+                        if isinstance(entry, dict):
+                            text_value = entry.get("text", "").strip()
+                        else:
+                            text_value = str(entry).strip()
+
+                        if not text_value:
+                            continue
+
+                        processed_lines.append({
+                            "line": line_number,
+                            "text": text_value
+                        })
+                        line_number += 1
+
+                    if not processed_lines:
+                        raise ValueError("Sanitization returned no lines")
+
+                except Exception as exc:
+                    print(
+                        f"Warning: Content sanitization failed on page {page_num + 1}: {exc}",
+                        file=sys.stderr
+                    )
+                    for value in raw_lines:
+                        processed_lines.append({
+                            "line": line_number,
+                            "text": value
+                        })
+                        line_number += 1
+
+            else:
+                for value in raw_lines:
+                    processed_lines.append({
+                        "line": line_number,
+                        "text": value
+                    })
+                    line_number += 1
 
             if auto_caption and gemini_client:
                 images = page.get_images(full=True)
@@ -127,9 +166,8 @@ def extract_text_from_pdf(
 
                 for candidate in selected_images:
                     try:
-                        # Use the detailed caption method
-                        caption_text = gemini_client.caption_image_detailed(candidate["bytes"])
-                        lines.append({
+                        caption_text = gemini_client.caption_image(candidate["bytes"], max_caption_words)
+                        processed_lines.append({
                             "line": line_number,
                             "text": f"[Deskripsi Gambar: {caption_text}]"
                         })
@@ -140,10 +178,9 @@ def extract_text_from_pdf(
                             f"Warning: Failed to caption image on page {page_num + 1}: {exc}",
                             file=sys.stderr
                         )
-
             pages.append({
                 "page": page_num + 1,
-                "lines": lines
+                "lines": processed_lines
             })
 
     finally:
