@@ -354,32 +354,13 @@ class PerpustakaanController extends Controller
         ]);
 
         $devices = Device::whereIn('id', $validated['devices'])->get();
-        $deviceIds = $devices->pluck('id')->toArray();
-        $deviceSerials = $devices->pluck('serial_number')->toArray();
-        $characterCapacity = $this->materialSessionService->resolveCharacterCapacity($deviceIds);
 
-        $state = $this->materialSessionService->getInitialState($material, $characterCapacity);
-
-        foreach ($devices as $device) {
-            try {
-                $this->mqttService->sendMaterial($device->serial_number, [
-                    'material_id' => $material->id,
-                    'judul' => $material->judul,
-                    'user' => $user->nama_lengkap,
-                    'character_capacity' => $characterCapacity,
-                    'page_number' => $state['pageNumber'],
-                    'line_number' => max(1, $state['currentLineIndex'] + 1),
-                    'chunk_number' => max(1, $state['currentChunkIndex'] + 1),
-                    'current_chunk_text' => $state['currentChunkText'],
-                    'current_chunk_decimal_values' => $state['currentChunkDecimalValues'],
-                    'current_chunk_decimal' => $state['currentChunkDecimal'],
-                    'timestamp' => now()->toISOString(),
-                    'context' => 'perpustakaan',
-                ]);
-            } catch (\Exception $e) {
-                Log::error('Failed to send material to device: ' . $e->getMessage());
-            }
+        if ($devices->isEmpty()) {
+            return redirect()->back()->with('error', 'Tidak ada perangkat yang dipilih.');
         }
+
+        $deviceIds = $devices->pluck('id')->toArray();
+        $deviceSerials = $devices->pluck('serial_number')->filter()->values()->toArray();
 
         session()->put('perpustakaan_selected_devices', $deviceIds);
         session()->put('perpustakaan_selected_device_serials', $deviceSerials);
