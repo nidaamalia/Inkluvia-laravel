@@ -26,7 +26,7 @@
 <body class="bg-gray-50 font-['Inter']">
     <!-- Skip to main content -->
     <a href="#login-form" class="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 bg-primary text-white px-4 py-2 rounded">
-        Skip to login form
+        Lewati ke formulir login
     </a>
 
     <div class="min-h-screen flex flex-col lg:flex-row">
@@ -38,7 +38,7 @@
                 class="inline-flex items-center text-3xl font-bold text-primary mb-8 hover:opacity-80 transition-opacity focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 rounded"
                 aria-label="Kembali ke beranda Inkluvia">
                     
-                    <img src="{{ asset('assets/icon.png') }}" alt="Inkluvia Logo" class="w-12 h-10 mr-3">
+                    <img src="{{ asset('assets/icon.png') }}" alt="" class="w-12 h-10 mr-3" aria-hidden="true">
                     inkluvia
                 </a>
 
@@ -50,10 +50,11 @@
 
                 <!-- Error Messages -->
                 @if($errors->any())
-                <div role="alert" class="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+                <div role="alert" aria-live="assertive" class="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
                     <div class="flex items-start">
                         <i class="fas fa-exclamation-circle text-red-600 mt-0.5 mr-3" aria-hidden="true"></i>
                         <div class="flex-1">
+                            <p class="font-semibold text-sm text-red-800 mb-1">Terjadi kesalahan:</p>
                             <p class="text-sm text-red-800">{{ $errors->first() }}</p>
                         </div>
                     </div>
@@ -61,13 +62,13 @@
                 @endif
 
                 <!-- Login Form -->
-                <form method="POST" action="{{ route('login') }}" id="login-form" class="space-y-6">
+                <form method="POST" action="{{ route('login') }}" id="login-form" class="space-y-6" novalidate>
                     @csrf
                     
                     <!-- Email Field -->
                     <div>
                         <label for="email" class="block text-sm font-semibold text-gray-900 mb-2">
-                            Email
+                            Email <span class="text-red-600" aria-label="wajib diisi">*</span>
                         </label>
                         <div class="relative">
                             <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
@@ -79,19 +80,23 @@
                                 name="email" 
                                 required
                                 autofocus
+                                autocomplete="email"
                                 class="w-full pl-12 pr-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition-colors text-base"
-                                placeholder="Email"
+                                placeholder="contoh@email.com"
                                 value="{{ old('email') }}"
                                 aria-required="true"
-                                aria-describedby="email-help">
+                                aria-invalid="{{ $errors->has('email') ? 'true' : 'false' }}"
+                                aria-describedby="email-error">
                         </div>
-                        <p id="email-help" class="sr-only">Masukkan alamat email Anda untuk login</p>
+                        @error('email')
+                        <p id="email-error" class="mt-2 text-sm text-red-600" role="alert">{{ $message }}</p>
+                        @enderror
                     </div>
 
                     <!-- Password Field -->
                     <div>
                         <label for="password" class="block text-sm font-semibold text-gray-900 mb-2">
-                            Kata Sandi
+                            Kata Sandi <span class="text-red-600" aria-label="wajib diisi">*</span>
                         </label>
                         <div class="relative">
                             <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
@@ -102,31 +107,37 @@
                                 id="password" 
                                 name="password" 
                                 required
-                                class="w-full pl-12 pr-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition-colors text-base"
-                                placeholder="Kata Sandi"
+                                autocomplete="current-password"
+                                class="w-full pl-12 pr-12 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition-colors text-base"
+                                placeholder="Masukkan kata sandi"
                                 aria-required="true"
-                                aria-describedby="password-help">
-                                <button type="button" 
-                                    onclick="togglePassword('password', this)" 
-                                    class="absolute inset-y-0 right-0 flex items-center px-3 text-gray-500 hover:text-gray-700 focus:outline-none">
-                                    <!-- Eye icon -->
-                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" class="w-5 h-5">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
-                                            d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
-                                            d="M2.458 12C3.732 7.943 7.523 5 12 5c4.477 0 8.268 2.943 9.542 7-1.274 4.057-5.065 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                                    </svg>
-                                </button>
+                                aria-invalid="{{ $errors->has('password') ? 'true' : 'false' }}"
+                                aria-describedby="password-error password-toggle-desc">
+                            <button 
+                                type="button" 
+                                onclick="togglePassword('password', this)" 
+                                class="absolute inset-y-0 right-0 flex items-center px-3 text-gray-500 hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-inset rounded-r-lg"
+                                aria-label="Tampilkan kata sandi"
+                                aria-pressed="false">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" class="w-5 h-5" aria-hidden="true">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                                        d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                                        d="M2.458 12C3.732 7.943 7.523 5 12 5c4.477 0 8.268 2.943 9.542 7-1.274 4.057-5.065 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                </svg>
+                            </button>
                         </div>
-                        <p id="password-help" class="sr-only">Masukkan password Anda</p>
+                        <span id="password-toggle-desc" class="sr-only">Tekan tombol untuk menampilkan atau menyembunyikan kata sandi</span>
+                        @error('password')
+                        <p id="password-error" class="mt-2 text-sm text-red-600" role="alert">{{ $message }}</p>
+                        @enderror
                     </div>
 
                     <!-- Submit Button -->
                     <button 
                         type="submit" 
-                        class="w-full bg-primary text-white font-semibold py-3 px-6 rounded-lg hover:bg-opacity-90 transition-all focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:outline-none"
-                        aria-label="Login ke akun Anda">
-                        Log In
+                        class="w-full bg-primary text-white font-semibold py-3 px-6 rounded-lg hover:bg-opacity-90 transition-all focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:outline-none">
+                        Masuk
                     </button>
                 </form>
 
@@ -134,20 +145,19 @@
                 <p class="mt-6 text-center text-gray-600">
                     Belum punya akun? 
                     <a href="{{ route('register') }}" 
-                       class="text-primary font-semibold hover:underline focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 rounded"
-                       aria-label="Daftar akun baru">
-                        Register
+                       class="text-primary font-semibold hover:underline focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 rounded px-1">
+                        Daftar sekarang
                     </a>
                 </p>
             </div>
         </div>
 
         <!-- Right Side - Illustration -->
-        <div class="hidden lg:flex flex-1 bg-gradient-to-br from-primary to-secondary items-center justify-center p-12">
-            <div class="max-w-lg text-center" role="img" aria-label="Ilustrasi pembelajaran braille">
+        <div class="hidden lg:flex flex-1 bg-gradient-to-br from-primary to-secondary items-center justify-center p-12" aria-hidden="true">
+            <div class="max-w-lg text-center">
                 <div class="bg-white bg-opacity-20 backdrop-blur-sm rounded-3xl p-8 mb-6">
                     <img src="{{ asset('assets/auth.png') }}" 
-                        alt="Ilustrasi pembelajaran braille" 
+                        alt="" 
                         class="w-full h-auto rounded-2xl shadow-lg">
                 </div>
                 <h2 class="text-2xl font-bold text-white mb-3">Platform Pembelajaran Inklusif</h2>
@@ -194,10 +204,14 @@
 
             if (buttonEl) {
                 buttonEl.setAttribute('aria-pressed', isCurrentlyHidden ? 'true' : 'false');
-                buttonEl.setAttribute('aria-label', isCurrentlyHidden ? 'Sembunyikan password' : 'Tampilkan password');
-                buttonEl.title = isCurrentlyHidden ? 'Sembunyikan password' : 'Tampilkan password';
+                buttonEl.setAttribute('aria-label', isCurrentlyHidden ? 'Sembunyikan kata sandi' : 'Tampilkan kata sandi');
             }
+
+            // Announce to screen readers
+            const announcement = isCurrentlyHidden ? 'Kata sandi ditampilkan' : 'Kata sandi disembunyikan';
+            document.getElementById('announcements').textContent = announcement;
         }
+
         document.addEventListener('DOMContentLoaded', function() {
             // Focus management
             const emailInput = document.getElementById('email');
@@ -205,15 +219,31 @@
                 emailInput.focus();
             }
 
-            // Form submission announcement
+            // Form validation
             const form = document.getElementById('login-form');
-            form.addEventListener('submit', function() {
-                document.getElementById('announcements').textContent = 'Memproses login...';
+            const passwordInput = document.getElementById('password');
+            
+            form.addEventListener('submit', function(e) {
+                let isValid = true;
+                
+                // Email validation
+                if (!emailInput.validity.valid) {
+                    isValid = false;
+                }
+                
+                // Password validation
+                if (!passwordInput.value) {
+                    isValid = false;
+                }
+                
+                if (isValid) {
+                    document.getElementById('announcements').textContent = 'Memproses login, mohon tunggu...';
+                }
             });
 
             // Announce page load for screen readers
             setTimeout(() => {
-                document.getElementById('announcements').textContent = 'Halaman login. Masukkan email dan password untuk login.';
+                document.getElementById('announcements').textContent = 'Halaman login. Gunakan formulir untuk masuk ke akun Anda.';
             }, 500);
         });
     </script>

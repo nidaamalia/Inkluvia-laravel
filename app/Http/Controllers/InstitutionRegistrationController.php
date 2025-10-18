@@ -14,7 +14,7 @@ class InstitutionRegistrationController extends Controller
     {
         $data = $request->validated();
 
-        Mail::to('libaihua369@gmail.com')->send(new InstitutionRegisteredAdmin($data));
+        Mail::to('aliyahpattozaa@gmail.com')->send(new InstitutionRegisteredAdmin($data));
         Mail::to($data['email'])->send(new InstitutionRegisteredUser($data));
 
         return back()->with('status', 'Terima kasih! Pendaftaran lembaga Anda telah dikirim. Cek email untuk konfirmasi.');

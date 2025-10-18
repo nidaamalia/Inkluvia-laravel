@@ -56,6 +56,7 @@ class DatabaseSeeder extends Seeder
 
         $this->call([
             EduBrailleSeeder::class,
+            MaterialSeeder::class,
         ]);
     }
 }

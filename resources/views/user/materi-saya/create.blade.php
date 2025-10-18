@@ -113,7 +113,7 @@
                                 </label>
                                 <p class="pl-1">atau drag and drop</p>
                             </div>
-                            <p class="text-xs text-gray-500">PDF hingga 10MB</p>
+                            <p class="text-xs text-gray-500">PDF hingga 1MB</p>
                             <p id="file-name" class="text-sm font-medium text-primary mt-2"></p>
                         </div>
                     </div>
