@@ -23,7 +23,7 @@
                 <i class="fas fa-laptop text-2xl"></i>
                 <div>
                     <p class="text-sm opacity-80">Total Perangkat</p>
-                    <p class="text-xl font-bold">0</p>
+                    <p class="text-xl font-bold">{{ $stats['total_devices'] ?? 0 }}</p>
                 </div>
             </div>
         </div>
@@ -32,7 +32,7 @@
                 <i class="fas fa-wifi text-2xl"></i>
                 <div>
                     <p class="text-sm opacity-80">Online</p>
-                    <p class="text-xl font-bold">0</p>
+                    <p class="text-xl font-bold">{{ $stats['online_devices'] ?? 0 }}</p>
                 </div>
             </div>
         </div>
@@ -41,7 +41,7 @@
                 <i class="fas fa-check-circle text-2xl"></i>
                 <div>
                     <p class="text-sm opacity-80">Aktif</p>
-                    <p class="text-xl font-bold">0</p>
+                    <p class="text-xl font-bold">{{ $stats['active_devices'] ?? 0 }}</p>
                 </div>
             </div>
         </div>
@@ -50,7 +50,7 @@
                 <i class="fas fa-tools text-2xl"></i>
                 <div>
                     <p class="text-sm opacity-80">Maintenance</p>
-                    <p class="text-xl font-bold">0</p>
+                    <p class="text-xl font-bold">{{ $stats['maintenance_devices'] ?? 0 }}</p>
                 </div>
             </div>
         </div>
@@ -58,23 +58,33 @@
 
     <!-- Filter -->
     <div class="bg-white p-4 rounded-xl shadow mb-6">
-        <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
-            <input type="text" placeholder="Cari perangkat..."
+        <form method="GET" class="grid grid-cols-1 md:grid-cols-5 gap-4">
+            <input type="text" name="search" value="{{ request('search') }}" placeholder="Cari perangkat..."
                    class="border rounded-lg px-3 py-2 w-full focus:ring-primary focus:border-primary">
-            <select class="border rounded-lg px-3 py-2 w-full focus:ring-primary focus:border-primary">
-                <option>Semua Status</option>
+            <select name="status" class="border rounded-lg px-3 py-2 w-full focus:ring-primary focus:border-primary">
+                <option value="">Semua Status</option>
+                <option value="aktif" {{ request('status') === 'aktif' ? 'selected' : '' }}>Aktif</option>
+                <option value="tidak_aktif" {{ request('status') === 'tidak_aktif' ? 'selected' : '' }}>Tidak Aktif</option>
+                <option value="maintenance" {{ request('status') === 'maintenance' ? 'selected' : '' }}>Maintenance</option>
             </select>
-            <select class="border rounded-lg px-3 py-2 w-full focus:ring-primary focus:border-primary">
-                <option>Semua Koneksi</option>
+            <select name="connection" class="border rounded-lg px-3 py-2 w-full focus:ring-primary focus:border-primary">
+                <option value="">Semua Koneksi</option>
+                <option value="online" {{ request('connection') === 'online' ? 'selected' : '' }}>Online</option>
+                <option value="offline" {{ request('connection') === 'offline' ? 'selected' : '' }}>Offline</option>
             </select>
-            <select class="border rounded-lg px-3 py-2 w-full focus:ring-primary focus:border-primary">
-                <option>Semua Lembaga</option>
+            <select name="lembaga" class="border rounded-lg px-3 py-2 w-full focus:ring-primary focus:border-primary">
+                <option value="">Semua Lembaga</option>
+                @foreach($lembagas as $lembaga)
+                <option value="{{ $lembaga->id }}" {{ (string) request('lembaga') === (string) $lembaga->id ? 'selected' : '' }}>
+                    {{ $lembaga->nama }} ({{ $lembaga->type }})
+                </option>
+                @endforeach
             </select>
             <div class="flex space-x-2">
-                <button class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90">Cari</button>
-                <button class="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300">Reset</button>
+                <button type="submit" class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90">Cari</button>
+                <a href="{{ route('admin.kelola-perangkat') }}" class="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300 flex items-center justify-center">Reset</a>
             </div>
-        </div>
+        </form>
     </div>
 </div>
 
@@ -94,35 +104,87 @@
             </tr>
         </thead>
         <tbody class="divide-y divide-gray-200">
+            @forelse($devices as $device)
             <tr class="hover:bg-gray-50">
                 <td class="px-4 py-3 flex items-center gap-2">
                     <span class="text-purple-600 text-lg"><i class="fas fa-laptop"></i></span>
-                    <span class="font-medium">EduBraille 1</span>
-                </td>
-                <td class="px-4 py-3">EDUE26AA4</td>
-                <td class="px-4 py-3">Pengguna Mandiri<br><span class="text-xs text-gray-500">Individu</span></td>
-                <td class="px-4 py-3">
-                    <div class="flex items-center gap-2">
-                        <span class="w-6 h-6 flex items-center justify-center bg-purple-600 text-white rounded-full text-xs">B</span>
-                        <div>
-                            <p class="font-medium">Budi Santoso</p>
-                            <p class="text-xs text-gray-500">budisantoso@gmail.com</p>
-                        </div>
+                    <div>
+                        <p class="font-medium text-gray-900">{{ $device->nama_device }}</p>
+                        <p class="text-xs text-gray-500">Dibuat {{ $device->created_at?->format('d M Y') }}</p>
                     </div>
                 </td>
-                <td class="px-4 py-3 text-center">
-                    <span class="px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-700">Aktif</span>
+                <td class="px-4 py-3 font-mono text-sm">{{ $device->serial_number }}</td>
+                <td class="px-4 py-3">
+                    @if($device->lembaga)
+                        <div class="font-medium text-gray-900">{{ $device->lembaga->nama }}</div>
+                        <div class="text-xs text-gray-500">{{ $device->lembaga->type }}</div>
+                    @else
+                        <span class="text-xs text-gray-500 italic">Tidak terhubung</span>
+                    @endif
+                </td>
+                <td class="px-4 py-3">
+                    @if($device->user)
+                        <div class="font-medium text-gray-900">{{ $device->user->nama_lengkap }}</div>
+                        <div class="text-xs text-gray-500">{{ $device->user->email }}</div>
+                    @else
+                        <span class="text-xs text-gray-500 italic">Belum ada pengguna</span>
+                    @endif
                 </td>
                 <td class="px-4 py-3 text-center">
-                    <span class="px-2 py-1 text-xs font-medium rounded-full bg-red-100 text-red-600">Offline</span>
+                    @php
+                        $statusMap = [
+                            'aktif' => 'bg-green-100 text-green-700',
+                            'tidak_aktif' => 'bg-red-100 text-red-700',
+                            'maintenance' => 'bg-yellow-100 text-yellow-700'
+                        ];
+                        $statusClass = $statusMap[$device->status] ?? 'bg-gray-200 text-gray-700';
+                    @endphp
+                    <span class="px-2 py-1 text-xs font-medium rounded-full {{ $statusClass }}">
+                        {{ ucfirst(str_replace('_', ' ', $device->status)) }}
+                    </span>
                 </td>
-                <td class="px-4 py-3 text-center text-gray-500 italic">Belum pernah</td>
-                <td class="px-4 py-3 text-center space-x-2">
-                    <button class="text-blue-600 hover:text-blue-800" title="Detail"><i class="fas fa-info-circle"></i></button>
-                    <button class="text-green-600 hover:text-green-800" title="Edit"><i class="fas fa-edit"></i></button>
-                    <button class="text-red-600 hover:text-red-800" title="Hapus"><i class="fas fa-trash"></i></button>
+                <td class="px-4 py-3 text-center">
+                    @php
+                        $connection = $device->connection_status;
+                        $connectionClass = $connection === 'online' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700';
+                    @endphp
+                    <span class="px-2 py-1 text-xs font-medium rounded-full {{ $connectionClass }}">
+                        {{ ucfirst($connection) }}
+                    </span>
+                </td>
+                <td class="px-4 py-3 text-center text-gray-600">
+                    {{ $device->last_connection ? $device->last_connection->diffForHumans() : 'Belum pernah' }}
+                </td>
+                <td class="px-4 py-3 text-center">
+                    <div class="flex items-center justify-center gap-2">
+                        <button type="button" class="text-blue-600 hover:text-blue-800"
+                                onclick="requestStatus({{ $device->id }})" title="Request status">
+                            <i class="fas fa-satellite-dish"></i>
+                        </button>
+                        <button type="button" class="text-indigo-600 hover:text-indigo-800"
+                                onclick="pingDevice({{ $device->id }})" title="Ping">
+                            <i class="fas fa-broadcast-tower"></i>
+                        </button>
+                        <a href="{{ route('admin.kelola-perangkat.edit', $device) }}" class="text-green-600 hover:text-green-800" title="Edit">
+                            <i class="fas fa-edit"></i>
+                        </a>
+                        <form action="{{ route('admin.kelola-perangkat.destroy', $device) }}" method="POST" class="inline" onsubmit="return confirm('Hapus perangkat ini?')">
+                            @csrf
+                            @method('DELETE')
+                            <button type="submit" class="text-red-600 hover:text-red-800" title="Hapus">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </form>
+                    </div>
                 </td>
             </tr>
+            @empty
+            <tr>
+                <td colspan="8" class="px-4 py-8 text-center text-gray-500">
+                    Belum ada perangkat. Klik "Tambah Perangkat" untuk menambahkan perangkat baru.
+                </td>
+            </tr>
+            @endforelse
         </tbody>
     </table>
 </div>
