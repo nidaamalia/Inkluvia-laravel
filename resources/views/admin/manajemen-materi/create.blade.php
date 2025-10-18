@@ -206,23 +206,6 @@
                     </div>
                 </div>
 
-                <!-- JSON Preview Section -->
-                <div class="mb-8 hidden" id="jsonPreviewSection">
-                    <h5 class="text-lg font-bold text-gray-900 mb-4">
-                        <i class="fas fa-code mr-2"></i>JSON Preview
-                    </h5>
-                    <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
-                        <div class="flex items-start gap-3">
-                            <i class="fas fa-info-circle text-blue-600 mt-1"></i>
-                            <div class="text-sm text-blue-900">
-                                <strong>Developer Info:</strong> This shows how the PDF will be converted to JSON format for braille processing.
-                            </div>
-                        </div>
-                    </div>
-                    <div class="bg-gray-50 border border-gray-200 rounded-lg p-4 max-h-96 overflow-y-auto">
-                        <pre id="jsonPreview" class="text-xs font-mono whitespace-pre-wrap break-words"></pre>
-                    </div>
-                </div>
 
                 <!-- Submit Buttons -->
                 <div class="flex flex-col sm:flex-row justify-end gap-3">
@@ -231,7 +214,8 @@
                         <i class="fas fa-times mr-2"></i>Batal
                     </a>
                     <button type="submit" 
-                            class="w-full sm:w-auto px-6 py-3 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors font-medium">
+                            class="w-full sm:w-auto px-6 py-3 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors font-medium"
+                            id="submitButton">
                         <i class="fas fa-upload mr-2"></i>Upload Materi
                     </button>
                 </div>
@@ -240,11 +224,23 @@
     </div>
 </div>
 
+<div id="conversionOverlay" class="fixed inset-0 bg-black bg-opacity-40 backdrop-blur-sm flex items-center justify-center hidden z-50">
+    <div class="bg-white rounded-xl shadow-lg px-8 py-6 flex flex-col items-center gap-4">
+        <i class="fas fa-spinner fa-spin text-3xl text-primary"></i>
+        <h3 class="text-lg font-semibold text-gray-900">Sedang memproses materi</h3>
+        <p class="text-sm text-gray-600 text-center max-w-xs">
+            Mohon tunggu sebentar, sistem sedang melakukan konversi PDF dengan Gemini AI.
+        </p>
+    </div>
+</div>
+
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const uploadArea = document.getElementById('uploadArea');
     const fileInput = document.getElementById('file');
     const uploadContent = uploadArea.querySelector('.upload-content');
+    const submitButton = document.getElementById('submitButton');
+    const overlay = document.getElementById('conversionOverlay');
 
     uploadArea.addEventListener('click', function() {
         fileInput.click();
@@ -275,9 +271,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const file = e.target.files[0];
         if (file) {
             updateFileDisplay(file);
-            if (validateFile(file)) {
-                showJsonPreview(file);
-            }
+            validateFile(file);
         }
     });
 
@@ -310,57 +304,6 @@ document.addEventListener('DOMContentLoaded', function() {
         return true;
     }
 
-    function showJsonPreview(file) {
-        const jsonPreviewSection = document.getElementById('jsonPreviewSection');
-        const jsonPreview = document.getElementById('jsonPreview');
-        
-        jsonPreviewSection.classList.remove('hidden');
-        jsonPreview.textContent = 'Converting PDF to JSON...\n\nThis may take a few moments for large files.\nPlease wait...';
-        
-        const progressDiv = document.createElement('div');
-        progressDiv.id = 'conversionProgress';
-        progressDiv.className = 'mt-4';
-        progressDiv.innerHTML = `
-            <div class="w-full bg-gray-200 rounded-full h-2">
-                <div class="bg-primary h-2 rounded-full animate-pulse" style="width: 100%"></div>
-            </div>
-            <p class="text-sm text-gray-600 mt-2">Converting PDF content...</p>
-        `;
-        jsonPreview.parentNode.insertBefore(progressDiv, jsonPreview);
-        
-        const formData = new FormData();
-        formData.append('file', file);
-        formData.append('judul', document.getElementById('judul').value || 'Sample Title');
-        formData.append('penerbit', document.getElementById('penerbit').value || 'Sample Publisher');
-        formData.append('tahun', document.getElementById('tahun_terbit').value || new Date().getFullYear());
-        formData.append('edisi', document.getElementById('edisi').value || '1st Edition');
-        
-        fetch('/admin/manajemen-materi/preview-conversion', {
-            method: 'POST',
-            body: formData,
-            headers: {
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
-            }
-        })
-        .then(response => response.json())
-        .then(data => {
-            const progressDiv = document.getElementById('conversionProgress');
-            if (progressDiv) progressDiv.remove();
-            
-            if (data.error) {
-                throw new Error(data.error);
-            }
-            jsonPreview.textContent = JSON.stringify(data, null, 2);
-        })
-        .catch(error => {
-            const progressDiv = document.getElementById('conversionProgress');
-            if (progressDiv) progressDiv.remove();
-            
-            console.error('Error:', error);
-            jsonPreview.textContent = 'Error converting PDF to JSON. Please try again.';
-        });
-    }
-
     window.clearFile = function() {
         fileInput.value = '';
         uploadContent.innerHTML = `
@@ -370,8 +313,6 @@ document.addEventListener('DOMContentLoaded', function() {
             <p class="text-gray-900 font-medium mb-2 text-sm sm:text-base">Drag & Drop file PDF atau klik untuk browse</p>
             <p class="text-gray-500 text-xs sm:text-sm">Maksimal ukuran file: 50MB</p>
         `;
-        
-        document.getElementById('jsonPreviewSection').classList.add('hidden');
     };
 
     document.getElementById('uploadForm').addEventListener('submit', function(e) {
@@ -391,7 +332,12 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!isValid) {
             e.preventDefault();
             alert('Mohon lengkapi semua field yang wajib diisi!');
+            return;
         }
+
+        submitButton.disabled = true;
+        submitButton.classList.add('opacity-70', 'cursor-not-allowed');
+        overlay.classList.remove('hidden');
     });
 });
 </script>
