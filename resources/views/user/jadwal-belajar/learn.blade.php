@@ -353,7 +353,7 @@ const buttonTopic = {!! json_encode($buttonTopic ?? null) !!};
 
 // MQTT Configuration
 const mqttUrl = '{{ config('mqtt.ws_url') }}';
-const mqttTopic = '{{ config('mqtt.topic') }}';
+const mqttTopic = '{{ config('mqtt.topics.device_button') }}';
 const mqttPublishTopic = '{{ config('mqtt.topics.device_control') }}';
 const mqttClient = mqtt.connect(mqttUrl, {
     @if(config('mqtt.username'))

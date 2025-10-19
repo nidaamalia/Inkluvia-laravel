@@ -10,7 +10,7 @@ return [
     'ws_url' => env('MQTT_WS_URL', 'wss://caddy-production-8ef8.up.railway.app/mqtt'),
     'timeout' => (int) env('MQTT_TIMEOUT', 60),
     'keep_alive' => (int) env('MQTT_KEEP_ALIVE', 60),
-    'qos' => (int) env('MQTT_QOS', 0),
+    'qos' => (int) env('MQTT_QOS', 1),
 
     // Connection settings
     'keep_alive' => 60,
