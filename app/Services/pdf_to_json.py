@@ -36,6 +36,8 @@ def extract_text_from_pdf(
     gemini_client = None
     total_captions = 0
 
+    quota_exhausted = False
+
     if auto_caption:
         if GeminiPdfProcessor is None:
             raise RuntimeError(
@@ -70,7 +72,7 @@ def extract_text_from_pdf(
             processed_lines = []
             line_number = 1
 
-            if gemini_client:
+            if gemini_client and not getattr(gemini_client, "quota_exceeded", False):
                 try:
                     page_payload = [{
                         "page": page_num + 1,
@@ -121,7 +123,7 @@ def extract_text_from_pdf(
                     })
                     line_number += 1
 
-            if auto_caption and gemini_client:
+            if auto_caption and gemini_client and not getattr(gemini_client, "quota_exceeded", False):
                 images = page.get_images(full=True)
                 processed_xrefs = set()
                 page_area = page.rect.width * page.rect.height if page.rect else 0
@@ -186,10 +188,17 @@ def extract_text_from_pdf(
     finally:
         doc.close()
 
+    if gemini_client:
+        quota_exhausted = getattr(gemini_client, "quota_exceeded", False)
+
     if stats is not None:
         stats["images_captioned"] = total_captions
+        stats["gemini_quota_exhausted"] = quota_exhausted
 
-    return pages
+    return {
+        "pages": pages,
+        "gemini_quota_exhausted": quota_exhausted
+    }
 
 
 def extract_metadata(pdf_path):
@@ -249,7 +258,7 @@ def main():
     out_path = args.output or (os.path.splitext(args.pdf)[0] + ".json")
     meta = extract_metadata(args.pdf)
     stats = {}
-    pages = extract_text_from_pdf(
+    extraction_result = extract_text_from_pdf(
         args.pdf,
         auto_caption=args.auto_caption,
         max_caption_words=args.caption_max_words,
@@ -258,6 +267,9 @@ def main():
         max_images_per_page=args.max_images_per_page,
         min_image_area_ratio=args.min_image_area_ratio
     )
+
+    quota_exhausted = extraction_result.get("gemini_quota_exhausted", False) if isinstance(extraction_result, dict) else False
+    pages = extraction_result.get("pages") if isinstance(extraction_result, dict) else extraction_result
 
     payload = {
         "judul": args.judul or meta["judul"],
@@ -275,6 +287,7 @@ def main():
             "content_sanitization",
             "math_chemistry_conversion"
         ]
+        payload["gemini_quota_exhausted"] = quota_exhausted
 
     with open(out_path, "w", encoding="utf-8") as f:
         json.dump(payload, f, ensure_ascii=False, indent=2)
