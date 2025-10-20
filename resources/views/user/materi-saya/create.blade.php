@@ -124,7 +124,7 @@
                                 <i class="fas fa-file-pdf text-primary text-5xl sm:text-6xl"></i>
                             </div>
                             <p class="text-gray-900 font-medium text-sm sm:text-base">Drag & Drop file PDF atau klik untuk browse</p>
-                            <p class="text-gray-500 text-xs sm:text-sm">Maksimal ukuran file: 10MB</p>
+                            <p class="text-gray-500 text-xs sm:text-sm">Maksimal ukuran file: 1MB</p>
                         </div>
                         <input id="file" name="file" type="file" accept=".pdf" required class="hidden">
                     </div>
@@ -269,7 +269,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
 
             if (file.size > 10 * 1024 * 1024) {
-                alert('Ukuran file maksimal 10MB!');
+                alert('Ukuran file maksimal 1MB!');
                 clearFile();
                 return false;
             }
@@ -284,7 +284,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     <i class="fas fa-file-pdf text-primary text-5xl sm:text-6xl"></i>
                 </div>
                 <p class="text-gray-900 font-medium text-sm sm:text-base">Drag & Drop file PDF atau klik untuk browse</p>
-                <p class="text-gray-500 text-xs sm:text-sm">Maksimal ukuran file: 10MB</p>
+                <p class="text-gray-500 text-xs sm:text-sm">Maksimal ukuran file: 1MB</p>
             `;
         };
     }
