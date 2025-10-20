@@ -86,6 +86,10 @@ Route::middleware('auth')->group(function () {
         Route::post('/perpustakaan/{material}/material-page', [PerpustakaanController::class, 'materialPage'])->name('perpustakaan.material-page');
         Route::get('/perpustakaan', [PerpustakaanController::class, 'index'])->name('perpustakaan');
         Route::post('/perpustakaan', [PerpustakaanController::class, 'store'])->name('perpustakaan.store');
+
+        Route::get('/panduan', function () {
+            return view('user.panduan');
+        })->name('panduan');
     });
     
     // Admin routes
@@ -138,6 +142,10 @@ Route::middleware('auth')->group(function () {
         Route::get('/pengaturan', [PengaturanController::class, 'index'])->name('pengaturan');
         Route::put('/pengaturan/profile', [PengaturanController::class, 'updateProfile'])->name('pengaturan.update-profile');
         Route::put('/pengaturan/password', [PengaturanController::class, 'updatePassword'])->name('pengaturan.update-password');
+
+        Route::get('/panduan', function () {
+            return view('admin.panduan');
+        })->name('panduan');
     });
 });
 

@@ -997,6 +997,13 @@ async function sendToDevices(chunkText, decimalValues) {
                     resolve();
                 }
             });
+            // mqttClient.publish('abatago/01/control', payload, { qos: 1 }, function(err) {
+            //     if (err) {
+            //         reject(err);
+            //     } else {
+            //         resolve();
+            //     }
+            // });
         });
 
         console.log('Decimal string sent via MQTT:', payload);
