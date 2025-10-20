@@ -36,6 +36,8 @@ def extract_text_from_pdf(
     gemini_client = None
     total_captions = 0
 
+    quota_exhausted = False
+
     if auto_caption:
         if GeminiPdfProcessor is None:
             raise RuntimeError(
@@ -55,34 +57,73 @@ def extract_text_from_pdf(
         
         for page_num in range(total_pages):
             page = doc.load_page(page_num)
-            lines = []
             blocks = page.get_text("blocks")
-            line_number = 1
+            raw_lines = []
 
             for block in blocks:
                 text = block[4].strip()
-                if text:
-                    for line in text.splitlines():
-                        if line.strip():
-                            # Apply sanitization if using Gemini
-                            if gemini_client:
-                                cleaned = gemini_client.sanitize_content(line.strip(), page_num + 1, total_pages)
-                                if cleaned:
-                                    processed = gemini_client.process_text_line(cleaned)
-                                    if processed:
-                                        lines.append({
-                                            "line": line_number,
-                                            "text": processed
-                                        })
-                                        line_number += 1
-                            else:
-                                lines.append({
-                                    "line": line_number,
-                                    "text": line.strip()
-                                })
-                                line_number += 1
+                if not text:
+                    continue
+                for line in text.splitlines():
+                    trimmed = line.strip()
+                    if trimmed:
+                        raw_lines.append(trimmed)
 
-            if auto_caption and gemini_client:
+            processed_lines = []
+            line_number = 1
+
+            if gemini_client and not getattr(gemini_client, "quota_exceeded", False):
+                try:
+                    page_payload = [{
+                        "page": page_num + 1,
+                        "lines": [{"text": value} for value in raw_lines]
+                    }]
+
+                    sanitized_pages = gemini_client.sanitize_content(page_payload)
+                    sanitized_lines = []
+                    if sanitized_pages and isinstance(sanitized_pages, list):
+                        sanitized_page = next((p for p in sanitized_pages if p.get("page") == page_num + 1), sanitized_pages[0])
+                        sanitized_lines = sanitized_page.get("lines", []) if isinstance(sanitized_page, dict) else []
+
+                    for entry in sanitized_lines:
+                        if isinstance(entry, dict):
+                            text_value = entry.get("text", "").strip()
+                        else:
+                            text_value = str(entry).strip()
+
+                        if not text_value:
+                            continue
+
+                        processed_lines.append({
+                            "line": line_number,
+                            "text": text_value
+                        })
+                        line_number += 1
+
+                    if not processed_lines:
+                        raise ValueError("Sanitization returned no lines")
+
+                except Exception as exc:
+                    print(
+                        f"Warning: Content sanitization failed on page {page_num + 1}: {exc}",
+                        file=sys.stderr
+                    )
+                    for value in raw_lines:
+                        processed_lines.append({
+                            "line": line_number,
+                            "text": value
+                        })
+                        line_number += 1
+
+            else:
+                for value in raw_lines:
+                    processed_lines.append({
+                        "line": line_number,
+                        "text": value
+                    })
+                    line_number += 1
+
+            if auto_caption and gemini_client and not getattr(gemini_client, "quota_exceeded", False):
                 images = page.get_images(full=True)
                 processed_xrefs = set()
                 page_area = page.rect.width * page.rect.height if page.rect else 0
@@ -127,9 +168,8 @@ def extract_text_from_pdf(
 
                 for candidate in selected_images:
                     try:
-                        # Use the detailed caption method
-                        caption_text = gemini_client.caption_image_detailed(candidate["bytes"])
-                        lines.append({
+                        caption_text = gemini_client.caption_image(candidate["bytes"], max_caption_words)
+                        processed_lines.append({
                             "line": line_number,
                             "text": f"[Deskripsi Gambar: {caption_text}]"
                         })
@@ -140,19 +180,25 @@ def extract_text_from_pdf(
                             f"Warning: Failed to caption image on page {page_num + 1}: {exc}",
                             file=sys.stderr
                         )
-
             pages.append({
                 "page": page_num + 1,
-                "lines": lines
+                "lines": processed_lines
             })
 
     finally:
         doc.close()
 
+    if gemini_client:
+        quota_exhausted = getattr(gemini_client, "quota_exceeded", False)
+
     if stats is not None:
         stats["images_captioned"] = total_captions
+        stats["gemini_quota_exhausted"] = quota_exhausted
 
-    return pages
+    return {
+        "pages": pages,
+        "gemini_quota_exhausted": quota_exhausted
+    }
 
 
 def extract_metadata(pdf_path):
@@ -212,7 +258,7 @@ def main():
     out_path = args.output or (os.path.splitext(args.pdf)[0] + ".json")
     meta = extract_metadata(args.pdf)
     stats = {}
-    pages = extract_text_from_pdf(
+    extraction_result = extract_text_from_pdf(
         args.pdf,
         auto_caption=args.auto_caption,
         max_caption_words=args.caption_max_words,
@@ -221,6 +267,9 @@ def main():
         max_images_per_page=args.max_images_per_page,
         min_image_area_ratio=args.min_image_area_ratio
     )
+
+    quota_exhausted = extraction_result.get("gemini_quota_exhausted", False) if isinstance(extraction_result, dict) else False
+    pages = extraction_result.get("pages") if isinstance(extraction_result, dict) else extraction_result
 
     payload = {
         "judul": args.judul or meta["judul"],
@@ -238,6 +287,7 @@ def main():
             "content_sanitization",
             "math_chemistry_conversion"
         ]
+        payload["gemini_quota_exhausted"] = quota_exhausted
 
     with open(out_path, "w", encoding="utf-8") as f:
         json.dump(payload, f, ensure_ascii=False, indent=2)

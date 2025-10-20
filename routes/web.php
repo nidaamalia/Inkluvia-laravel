@@ -86,6 +86,10 @@ Route::middleware('auth')->group(function () {
         Route::post('/perpustakaan/{material}/material-page', [PerpustakaanController::class, 'materialPage'])->name('perpustakaan.material-page');
         Route::get('/perpustakaan', [PerpustakaanController::class, 'index'])->name('perpustakaan');
         Route::post('/perpustakaan', [PerpustakaanController::class, 'store'])->name('perpustakaan.store');
+
+        Route::get('/panduan', function () {
+            return view('user.panduan');
+        })->name('panduan');
     });
     
     // Admin routes
@@ -120,7 +124,6 @@ Route::middleware('auth')->group(function () {
         Route::get('/manajemen-materi/{material}/preview', [MaterialController::class, 'preview'])->name('manajemen-materi.preview');
         Route::get('/manajemen-materi/{material}/download-json', [MaterialController::class, 'downloadJson'])->name('manajemen-materi.download-json');
         Route::post('/manajemen-materi/{material}/update-status', [MaterialController::class, 'updateStatus'])->name('manajemen-materi.update-status');
-        Route::post('/manajemen-materi/preview-conversion', [MaterialController::class, 'previewConversion'])->name('manajemen-materi.preview-conversion');
         Route::get('/manajemen-materi/test-conversion', [MaterialController::class, 'testConversion'])->name('manajemen-materi.test-conversion');
         Route::post('/manajemen-materi/{material}/generate-braille', [MaterialController::class, 'generateBraille'])->name('manajemen-materi.generate-braille');
         
@@ -139,6 +142,10 @@ Route::middleware('auth')->group(function () {
         Route::get('/pengaturan', [PengaturanController::class, 'index'])->name('pengaturan');
         Route::put('/pengaturan/profile', [PengaturanController::class, 'updateProfile'])->name('pengaturan.update-profile');
         Route::put('/pengaturan/password', [PengaturanController::class, 'updatePassword'])->name('pengaturan.update-password');
+
+        Route::get('/panduan', function () {
+            return view('admin.panduan');
+        })->name('panduan');
     });
 });
 

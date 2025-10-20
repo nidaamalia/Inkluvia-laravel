@@ -5,7 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Material;
 use App\Models\MaterialRequest;
 use App\Models\BraillePattern;
-use App\Services\PdfToJsonService;
+use App\Services\MaterialConversionService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
@@ -13,6 +13,10 @@ use Illuminate\Support\Facades\Validator;
 
 class MaterialController extends Controller
 {
+    public function __construct(
+        private readonly MaterialConversionService $materialConversionService,
+    ) {}
+
     public function index(Request $request)
     {
         $query = Material::with('creator');
@@ -89,7 +93,7 @@ class MaterialController extends Controller
         $this->triggerPdfConversion($material);
         
         return redirect()->route('admin.manajemen-materi')
-            ->with('success', 'Materi berhasil diupload! Proses konversi sedang berlangsung.');
+            ->with('success', 'Materi berhasil diupload!');
     }
     
     public function show(Material $material)
@@ -351,50 +355,10 @@ class MaterialController extends Controller
     private function triggerPdfConversion(Material $material)
     {
         try {
-            // Try Gemini processing first
-            $geminiService = new \App\Services\GeminiPdfProcessorService();
-            $pdfPath = Storage::disk('private')->path($material->file_path);
-            
-            $options = [
-                'judul' => $material->judul,
-                'penerbit' => $material->penerbit,
-                'tahun' => $material->tahun_terbit,
-                'edisi' => $material->edisi,
-                'caption_images' => true,  // Enable image captioning
-                'ocr_images' => true       // Enable OCR for image-based text
-            ];
-            
-            \Log::info("Starting Gemini-enhanced PDF conversion for material {$material->id}");
-            $jsonData = $geminiService->processPdfWithGemini($pdfPath, $options);
-            
-            // Fallback to standard conversion if Gemini fails
-            if (!$jsonData) {
-                \Log::warning("Gemini processing failed, falling back to standard conversion");
-                $pdfToJsonService = new PdfToJsonService();
-                $jsonData = $pdfToJsonService->convertPdfToJson($pdfPath, $options);
-            }
-            
-            if ($jsonData) {
-                $jsonPath = 'materials/json/' . $material->id . '.json';
-                Storage::disk('private')->put($jsonPath, json_encode($jsonData, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
-                
-                $originalPdfPath = $material->file_path;
-                
-                $material->update([
-                    'file_path' => $jsonPath,
-                    'total_halaman' => count($jsonData['pages'] ?? []),
-                    'status' => 'review'
-                ]);
-                
-                if (Storage::disk('private')->exists($originalPdfPath)) {
-                    Storage::disk('private')->delete($originalPdfPath);
-                }
-                
-                \Log::info("PDF conversion completed for material {$material->id}. Method: " . ($jsonData['processing_method'] ?? 'standard'));
-            } else {
-                throw new \Exception('PDF conversion returned no data');
-            }
-            
+            $this->materialConversionService->convertMaterial($material, [], [
+                'target_status' => 'review',
+            ]);
+
         } catch (\Exception $e) {
             \Log::error("PDF conversion failed for material {$material->id}: " . $e->getMessage());
             $material->update(['status' => 'draft']);
@@ -571,56 +535,6 @@ class MaterialController extends Controller
         }
     }
 
-    public function previewConversion(Request $request)
-    {
-        try {
-            $validator = Validator::make($request->all(), [
-                'file' => 'required|file|mimes:pdf|max:51200',
-                'judul' => 'nullable|string|max:255',
-                'penerbit' => 'nullable|string|max:255',
-                'tahun' => 'nullable|integer|min:1900|max:' . date('Y'),
-                'edisi' => 'nullable|string|max:100'
-            ]);
-
-            if ($validator->fails()) {
-                return response()->json(['error' => 'Invalid file or parameters'], 400);
-            }
-
-            $file = $request->file('file');
-            $tempPath = $file->store('temp', 'private');
-            
-            try {
-                $pdfToJsonService = new PdfToJsonService();
-                $convertedData = $pdfToJsonService->convertPdfToJson(
-                    Storage::disk('private')->path($tempPath),
-                    [
-                        'judul' => $request->judul,
-                        'penerbit' => $request->penerbit,
-                        'tahun' => $request->tahun,
-                        'edisi' => $request->edisi
-                    ]
-                );
-                
-                Storage::disk('private')->delete($tempPath);
-                
-                if ($convertedData && isset($convertedData['pages']) && !empty($convertedData['pages'])) {
-                    return response()->json($convertedData);
-                } else {
-                    return response()->json(['error' => 'Failed to convert PDF to JSON'], 500);
-                }
-                
-            } catch (\Exception $e) {
-                Storage::disk('private')->delete($tempPath);
-                \Log::error('PDF conversion failed in preview: ' . $e->getMessage());
-                return response()->json(['error' => 'PDF conversion failed: ' . $e->getMessage()], 500);
-            }
-            
-        } catch (\Exception $e) {
-            \Log::error('Preview conversion error: ' . $e->getMessage());
-            return response()->json(['error' => 'Gagal mengkonversi PDF: ' . $e->getMessage()], 500);
-        }
-    }
-    
     public function userPreview(Material $material)
     {
         try {

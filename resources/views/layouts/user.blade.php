@@ -77,6 +77,13 @@
                     <i class="fas fa-book mr-3" aria-hidden="true"></i>
                     Perpustakaan
                 </a>
+                
+                <a href="{{ route('user.panduan') }}" 
+                class="nav-link {{ request()->routeIs('user.panduan') ? 'active' : '' }}"
+                aria-label="Panduan">
+                    <i class="fas fa-info-circle mr-3" aria-hidden="true"></i>
+                    Panduan
+                </a>
             </nav>
         </aside>
 

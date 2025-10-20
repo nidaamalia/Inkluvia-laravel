@@ -346,7 +346,6 @@ const brailleData = {
 
 const navigateUrl = {!! json_encode(isset($navigateRouteName) ? route($navigateRouteName, $navigateRouteParams ?? []) : route('user.jadwal-belajar.navigate', ['jadwal' => $jadwal->id ?? null])) !!};
 const materialPageUrl = {!! json_encode(isset($materialPageRouteName) ? route($materialPageRouteName, $materialPageParams ?? []) : route('user.jadwal-belajar.material-page', ['jadwal' => $jadwal->id ?? null])) !!};
-const deviceSendUrl = {!! json_encode(route('user.device.send-text')) !!};
 const selectedDeviceIds = {!! json_encode($selectedDeviceIds ?? ($jadwal->devices->pluck('id')->all() ?? [])) !!};
 const selectedDeviceSerials = {!! json_encode($selectedDeviceSerials ?? ($jadwal->devices->pluck('serial_number')->all() ?? [])) !!};
 const buttonNavigationEnabled = {!! json_encode($buttonNavigationEnabled ?? false) !!};
@@ -354,7 +353,8 @@ const buttonTopic = {!! json_encode($buttonTopic ?? null) !!};
 
 // MQTT Configuration
 const mqttUrl = '{{ config('mqtt.ws_url') }}';
-const mqttTopic = '{{ config('mqtt.topic') }}';
+const mqttTopic = '{{ config('mqtt.topics.device_button') }}';
+const mqttPublishTopic = '{{ config('mqtt.topics.device_control') }}';
 const mqttClient = mqtt.connect(mqttUrl, {
     @if(config('mqtt.username'))
     username: '{{ config('mqtt.username') }}',
@@ -619,11 +619,16 @@ function updateView() {
         updateBrailleUnicodePattern(currentChar);
         
         if (window.mqttClient && mqttClient.connected) {
+            const targetTopic = mqttPublishTopic || mqttTopic;
+            if (!targetTopic) {
+                updateMqttStatus('Topik publish MQTT tidak tersedia', true);
+                return;
+            }
             try {
                 const decimalValue = typeof brailleDecimal !== 'undefined' && brailleDecimal !== null
                     ? String(brailleDecimal)
                     : brailleToDecimal(brailleBinary);
-                mqttClient.publish(mqttTopic, decimalValue, { qos: 1 }, function(err) {
+                mqttClient.publish(targetTopic, decimalValue, { qos: 1 }, function(err) {
                     if (err) {
                         updateMqttStatus('Gagal mengirim: ' + err.message, true);
                     } else {
@@ -961,56 +966,60 @@ async function sendToDevices(chunkText, decimalValues) {
         return;
     }
 
+    const targetTopic = mqttPublishTopic || mqttTopic;
+
+    if (!targetTopic) {
+        console.warn('MQTT publish topic is not configured.');
+        return;
+    }
+
+    if (!mqttClient || typeof mqttClient.publish !== 'function') {
+        console.warn('MQTT client is not available.');
+        return;
+    }
+
+    if (!mqttClient.connected) {
+        updateMqttStatus('Belum terhubung ke MQTT', true);
+        return;
+    }
+
     isSending = true;
     lastSentSignature = signature;
     
+    const payload = decimalString;
+
     try {
-        const response = await fetch(deviceSendUrl, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRF-TOKEN': '{{ csrf_token() }}',
-                'X-Requested-With': 'XMLHttpRequest'
-            },
-            body: JSON.stringify({
-                text: chunkText,
-                chunk_text: chunkText,
-                
-                // PILIH SALAH SATU FORMAT INI sesuai yang diharapkan perangkat:
-                decimal_values: paddedDecimals,        // Format: ["01", "12", "05"]
-                decimal: decimalString,                 // Format: "011205"
-                decimal_spaced: decimalStringSpaced,   // Format: "01 12 05"
-                
-                device_ids: Array.isArray(selectedDeviceIds) ? selectedDeviceIds : [],
-                device_serials: Array.isArray(selectedDeviceSerials) ? selectedDeviceSerials : []
-            })
+        await new Promise((resolve, reject) => {
+            mqttClient.publish(targetTopic, payload, { qos: 1 }, function(err) {
+                if (err) {
+                    reject(err);
+                } else {
+                    resolve();
+                }
+            });
+            // mqttClient.publish('abatago/01/control', payload, { qos: 1 }, function(err) {
+            //     if (err) {
+            //         reject(err);
+            //     } else {
+            //         resolve();
+            //     }
+            // });
         });
-        
-        const data = await response.json();
-        console.log('Text sent to devices:', data);
-        console.log('Decimal values sent:', paddedDecimals); // Debug log
-        console.log('Decimal string sent:', decimalString);   // Debug log
-        
-        // Update MQTT status
+
+        console.log('Decimal string sent via MQTT:', payload);
+
+        updateMqttStatus('Teks dikirim ke perangkat', false);
+
         const mqttStatus = document.getElementById('mqtt-status');
         if (mqttStatus) {
-            mqttStatus.textContent = 'Terkirim ke ' + data.results.length + ' perangkat';
-            mqttStatus.className = 'mt-6 p-3 rounded-lg text-center text-sm font-medium bg-green-100 text-green-800';
-            
             setTimeout(() => {
                 mqttStatus.textContent = 'Siap mengirim teks ke perangkat';
                 mqttStatus.className = 'mt-6 p-3 rounded-lg text-center text-sm font-medium bg-gray-100 text-gray-700';
             }, 3000);
         }
-        
     } catch (error) {
-        console.error('Failed to send text to devices:', error);
-        
-        const mqttStatus = document.getElementById('mqtt-status');
-        if (mqttStatus) {
-            mqttStatus.textContent = 'Gagal mengirim teks ke perangkat';
-            mqttStatus.className = 'mt-6 p-3 rounded-lg text-center text-sm font-medium bg-red-100 text-red-800';
-        }
+        console.error('Failed to send text via MQTT:', error);
+        updateMqttStatus('Gagal mengirim teks ke perangkat', true);
     } finally {
         isSending = false;
     }
