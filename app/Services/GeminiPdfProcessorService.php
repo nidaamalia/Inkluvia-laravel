@@ -110,7 +110,6 @@ class GeminiPdfProcessorService
             if (!empty($geminiApiKey)) {
                 // Set as environment variable for Python script
                 putenv("GEMINI_API_KEY={$geminiApiKey}");
-                $params[] = '--gemini-api-key ' . escapeshellarg($geminiApiKey);
             }
             
             $paramString = implode(' ', $params);
