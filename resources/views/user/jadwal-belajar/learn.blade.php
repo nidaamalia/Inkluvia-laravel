@@ -334,12 +334,12 @@ const brailleData = {
     total_pages: {{ $totalPages }},
     total_lines: {{ $totalLines }},
     lines: {!! json_encode($lines) !!},
-    material_title: {!! json_encode($material->judul) !!},
+    material_title: {!! json_encode($material->judul ?? '') !!},
     material_description: {!! json_encode($material->deskripsi ?? '') !!},
     current_line_text: {!! json_encode($currentLineText) !!},
-    braille_patterns: {!! json_encode($braillePatterns ?? {}) !!},
-    braille_binary_patterns: {!! json_encode($brailleBinaryPatterns ?? {}) !!},
-    braille_decimal_patterns: {!! json_encode($brailleDecimalPatterns ?? {}) !!},
+    braille_patterns: {!! json_encode($braillePatterns ?? []) !!},
+    braille_binary_patterns: {!! json_encode($brailleBinaryPatterns ?? []) !!},
+    braille_decimal_patterns: {!! json_encode($brailleDecimalPatterns ?? []) !!},
     current_chunk_text: {!! json_encode($currentChunkText) !!},
     current_chunk_decimal_values: {!! json_encode($currentChunkDecimalValues ?? []) !!}
 };
