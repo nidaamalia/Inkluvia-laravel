@@ -474,8 +474,8 @@ function updateBrailleUnicodePattern(character) {
     // For space, show empty cell instead of space unicode
     if (character === ' ') {
         brailleElement.textContent = '⠀'; // Braille blank
-        brailleElement.style.background = '#f9f9f9';
-        brailleElement.style.border = '1px solid #ddd';
+        brailleElement.style.background = '';
+        brailleElement.style.border = '';
     } else {
         brailleElement.textContent = unicodePattern;
         brailleElement.style.background = '';
