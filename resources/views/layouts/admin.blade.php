@@ -73,6 +73,10 @@
             class="nav-link {{ request()->routeIs('admin.pengaturan') ? 'active' : '' }}">
                 <i class="fas fa-cogs mr-3"></i> Pengaturan
             </a>
+            <a href="{{ route('admin.panduan') }}"
+            class="nav-link {{ request()->routeIs('admin.panduan') ? 'active' : '' }}">
+                <i class="fas fa-info-circle mr-3"></i> Panduan
+            </a>
         </nav>
     </aside>
 

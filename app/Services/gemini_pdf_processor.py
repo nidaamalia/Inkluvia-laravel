@@ -37,10 +37,21 @@ class GeminiPdfProcessor:
             self.model = "gemini-2.0-flash-exp"
             self.max_retries = 3
             self.retry_delay = 2
+            self.quota_exceeded = False
         except Exception as e:
             print(f"Error: Failed to initialize Gemini client - {e}", file=sys.stderr)
             raise
         
+    def _handle_quota_error(self, error: Exception) -> bool:
+        message = str(error)
+        lowered = message.lower()
+        if 'resource_exhausted' in lowered or 'quota' in lowered or '429' in message:
+            if not self.quota_exceeded:
+                print("Warning: Gemini quota exhausted, disabling AI features for this run", file=sys.stderr)
+            self.quota_exceeded = True
+            return True
+        return False
+
     def extract_text_and_images(self, pdf_path: str) -> Dict[str, Any]:
         """Extract text and images from PDF with error handling"""
         try:
@@ -116,6 +127,8 @@ class GeminiPdfProcessor:
         - Fix broken sentences across lines
         - Clean up formatting issues
         """
+        if self.quota_exceeded:
+            return pages_data
         try:
             # Prepare content for analysis
             full_text = ""
@@ -170,12 +183,16 @@ Teks yang akan dibersihkan:
         except json.JSONDecodeError as e:
             print(f"Warning: Failed to parse sanitization result: {e}", file=sys.stderr)
         except Exception as e:
+            if self._handle_quota_error(e):
+                return pages_data
             print(f"Warning: Content sanitization failed: {e}", file=sys.stderr)
         
         return pages_data
     
     def convert_math_notation(self, text: str) -> str:
         """Convert mathematical notation to screen-reader friendly format"""
+        if self.quota_exceeded:
+            return self.simple_math_conversion(text)
         try:
             # Check for math indicators
             math_indicators = ['∫', '∑', '√', '²', '³', '⁴', '÷', '×', '±', 'π', 
@@ -233,6 +250,8 @@ Hasil konversi:"""
             return converted if converted else text
             
         except Exception as e:
+            if self._handle_quota_error(e):
+                return self.simple_math_conversion(text)
             print(f"Warning: Math conversion failed, using fallback: {e}", file=sys.stderr)
             return self.simple_math_conversion(text)
     
@@ -271,6 +290,8 @@ Hasil konversi:"""
     
     def caption_image(self, image_bytes: bytes, max_words: int = 25) -> str:
         """Generate detailed image caption using Gemini Vision"""
+        if self.quota_exceeded:
+            return "[Gambar tidak dapat dideskripsikan]"
         try:
             prompt = (
                 "Deskripsikan gambar ini dalam Bahasa Indonesia dengan maksimal "
@@ -304,11 +325,15 @@ Hasil konversi:"""
             return caption
             
         except Exception as e:
+            if self._handle_quota_error(e):
+                return "[Gambar tidak dapat dideskripsikan]"
             print(f"Warning: Failed to caption image: {e}", file=sys.stderr)
             return "[Gambar tidak dapat dideskripsikan]"
     
     def ocr_image_text(self, image_bytes: bytes) -> Optional[str]:
         """Extract text from image using Gemini OCR"""
+        if self.quota_exceeded:
+            return None
         try:
             prompt = (
                 "Ekstrak semua teks yang terlihat dari gambar ini. "
@@ -335,6 +360,8 @@ Hasil konversi:"""
             return None
             
         except Exception as e:
+            if self._handle_quota_error(e):
+                return None
             print(f"Warning: Failed to OCR image: {e}", file=sys.stderr)
             return None
     
@@ -423,13 +450,16 @@ Hasil konversi:"""
         print(f"   Pages: {len(processed_pages)}", file=sys.stderr)
         print(f"   Images captioned: {images_captioned}", file=sys.stderr)
         print(f"   Images with OCR: {images_ocr}", file=sys.stderr)
+        if self.quota_exceeded:
+            print("⚠️ Gemini quota exhausted during processing; AI enhancements were partially disabled", file=sys.stderr)
         
         return {
             'pages': processed_pages,
             'images_count': data['total_images'],
             'images_captioned': images_captioned,
             'images_ocr': images_ocr,
-            'processing_method': 'gemini_full_enhancement'
+            'processing_method': 'gemini_full_enhancement',
+            'quota_exceeded': self.quota_exceeded
         }
 
 
